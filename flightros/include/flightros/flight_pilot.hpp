@@ -50,10 +50,12 @@ class FlightPilot {
   image_transport::ImageTransport it_;
 
   // publisher
-  image_transport::Publisher pub_RGBImage_;
-  image_transport::Publisher pub_DepthMap_;
-  image_transport::Publisher pub_Segmentation_;
-  image_transport::Publisher pub_OpticalFlow_;
+  std::vector<image_transport::Publisher> pub_RGBImages_;
+  std::vector<image_transport::Publisher> pub_DepthMaps_;
+  // image_transport::Publisher pub_RGBImage_;
+  // image_transport::Publisher pub_DepthMap_;
+  // image_transport::Publisher pub_Segmentation_;
+  // image_transport::Publisher pub_OpticalFlow_;
 
   // subscriber
   ros::Subscriber sub_state_est_;
@@ -64,6 +66,7 @@ class FlightPilot {
   // unity quadrotor
   std::shared_ptr<Quadrotor> quad_ptr_;
   std::shared_ptr<RGBCamera> rgb_camera_;
+  std::vector<std::shared_ptr<RGBCamera> > rgb_cameras_;
   QuadState quad_state_;
 
   // Flightmare(Unity3D)
@@ -73,7 +76,13 @@ class FlightPilot {
   bool unity_render_{false};
   RenderMessage_t unity_output_;
   uint16_t receive_id_{0};
-
+  size_t num_camera_{1};
+  std::vector< std::string> camera_names_;
+  int fov_;
+  int width_;
+  int height_;
+  std::vector< std::vector<double>> relpose_T_;
+  std::vector< std::vector<double>> relpose_R_;
   // auxiliary variables
   Scalar main_loop_freq_{50.0};
 };

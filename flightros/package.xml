@@ -18,6 +18,5 @@
   <depend>nav_msgs</depend>
   <depend>image_transport</depend>
   <depend>cv_bridge</depend>
-
-
+  <depend>rosparam_shortcuts</depend>
 </package>

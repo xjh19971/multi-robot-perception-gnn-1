@@ -1,4 +1,5 @@
 #include "flightros/flight_pilot.hpp"
+#include <rosparam_shortcuts/rosparam_shortcuts.h>
 
 namespace flightros {
 
@@ -10,7 +11,11 @@ FlightPilot::FlightPilot(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
     unity_ready_(false),
     unity_render_(false),
     receive_id_(0),
-    main_loop_freq_(50.0) {
+    main_loop_freq_(50.0),
+    width_(720),
+    height_(480),
+    fov_(90),
+    num_camera_(1)    {
   // load parameters
   if (!loadParams()) {
     ROS_WARN("[%s] Could not load all parameters.",
@@ -22,27 +27,49 @@ FlightPilot::FlightPilot(const ros::NodeHandle &nh, const ros::NodeHandle &pnh)
   // quad initialization
   quad_ptr_ = std::make_shared<Quadrotor>();
 
+/* ----------------------------------------------------------------
   // add mono camera
   rgb_camera_ = std::make_shared<RGBCamera>();
   Vector<3> B_r_BC(0.0, 0.0, 0.3);
   Matrix<3, 3> R_BC = Quaternion(1.0, 0.0, 0.0, 0.0).toRotationMatrix();
   std::cout << R_BC << std::endl;
-  rgb_camera_->setFOV(90);
-  rgb_camera_->setWidth(720);
-  rgb_camera_->setHeight(480);
+  rgb_camera_->setFOV(fov_);
+  rgb_camera_->setWidth(width_);
+  rgb_camera_->setHeight(height_);
   rgb_camera_->setRelPose(B_r_BC, R_BC);
-  rgb_camera_->setPostProcesscing(std::vector<bool>{true, true, true});
+  rgb_camera_->setPostProcesscing(std::vector<bool>{true, false, false});
   quad_ptr_->addRGBCamera(rgb_camera_);
+
+  // initialize publisher call backs
+  pub_RGBImage_ = it_.advertise("flight_pilot/RGBImage", 1);
+  pub_DepthMap_ = it_.advertise("flight_pilot/DepthMap", 1);
+  // pub_Segmentation_ = it_.advertise("flight_pilot/Segmentation", 1);
+  // pub_OpticalFlow_ = it_.advertise("flight_pilot/OpticalFlow", 1);
+---------------------------------------------------------------- */ 
+
+  // add multiple_cameras
+  for (size_t i = 0; i < num_camera_; ++i){
+    rgb_cameras_.push_back(std::make_shared<RGBCamera>());
+    Vector<3> B_r_BC ((Scalar)relpose_T_[i][0],(Scalar)relpose_T_[i][1],(Scalar)relpose_T_[i][2]); 
+    Matrix<3, 3> R_BC = Quaternion((Scalar)relpose_R_[i][0], (Scalar)relpose_R_[i][1], (Scalar)relpose_R_[i][2], (Scalar)relpose_R_[i][3]).toRotationMatrix();
+    std::cout << R_BC << std::endl;
+    rgb_cameras_[i]->setFOV(fov_);
+    rgb_cameras_[i]->setWidth(width_);
+    rgb_cameras_[i]->setHeight(height_);
+    rgb_cameras_[i]->setRelPose(B_r_BC, R_BC);
+    rgb_cameras_[i]->setPostProcesscing(std::vector<bool>{true, false, false});
+    quad_ptr_->addRGBCamera(rgb_cameras_[i]);
+    pub_RGBImages_.push_back(it_.advertise("flight_pilot/"+camera_names_[i]+"/RGBImage", 1));
+    pub_DepthMaps_.push_back(it_.advertise("flight_pilot/"+camera_names_[i]+"/DepthMap", 1));
+  }
+  // initialize publisher call backs
+  
+  ROS_INFO("[%s] Initilized all cameras.", pnh_.getNamespace().c_str());
 
   // initialization
   quad_state_.setZero();
   quad_ptr_->reset(quad_state_);
 
-  // initialize publisher call backs
-  pub_RGBImage_ = it_.advertise("flight_pilot/RGBImage", 1);
-  pub_DepthMap_ = it_.advertise("flight_pilot/DepthMap", 1);
-  pub_Segmentation_ = it_.advertise("flight_pilot/Segmentation", 1);
-  pub_OpticalFlow_ = it_.advertise("flight_pilot/OpticalFlow", 1);
 
   // initialize subscriber call backs
   sub_state_est_ = nh_.subscribe("flight_pilot/state_estimate", 1,
@@ -85,18 +112,29 @@ void FlightPilot::mainLoopCallback(const ros::TimerEvent &event) {
     bool handle_output = unity_bridge_ptr_->handleOutput();
     cv::Mat image;
     sensor_msgs::ImagePtr msg;
+    /* ------------------------
+    // mono camera publish
     rgb_camera_->getRGBImage(image);
     msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
     pub_RGBImage_.publish(msg);
     rgb_camera_->getDepthMap(image);
     msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
     pub_DepthMap_.publish(msg);
-    rgb_camera_->getSegmentation(image);
-    msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
-    pub_Segmentation_.publish(msg);
-    rgb_camera_->getOpticalFlow(image);
-    msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
-    pub_OpticalFlow_.publish(msg);
+    
+    // rgb_camera_->getSegmentation(image);
+    // msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+    // pub_Segmentation_.publish(msg);
+    // rgb_camera_->getOpticalFlow(image);
+    // msg = cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg();
+    // pub_OpticalFlow_.publish(msg);
+    ------------------------ */
+
+    for (size_t i = 0; i < num_camera_; ++i){
+      rgb_cameras_[i]->getRGBImage(image);
+      pub_RGBImages_[i].publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg());
+      rgb_cameras_[i]->getDepthMap(image);
+      pub_DepthMaps_[i].publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg());
+    }
 
 }
 
@@ -121,7 +159,24 @@ bool FlightPilot::loadParams(void) {
   // load parameters
   quadrotor_common::getParam("main_loop_freq", main_loop_freq_, pnh_);
   quadrotor_common::getParam("unity_render", unity_render_, pnh_);
-
+  std::size_t error= 0;
+  error += !rosparam_shortcuts::get("flight_pilot", pnh_, "scene_id", scene_id_);
+  error += !rosparam_shortcuts::get("flight_pilot", pnh_, "fov", fov_);
+  error += !rosparam_shortcuts::get("flight_pilot", pnh_, "width", width_);
+  error += !rosparam_shortcuts::get("flight_pilot", pnh_, "height", height_);
+  error += !rosparam_shortcuts::get("flight_pilot", pnh_, "num_camera", num_camera_);
+  error +=!rosparam_shortcuts::get("flight_pilot", pnh_, "camera_names", camera_names_);
+  for (size_t i = 0; i < num_camera_; ++i)
+  {
+    std::vector<double> tvec;
+    std::vector<double> rvec;
+    error += !rosparam_shortcuts::get("flight_pilot", pnh_, camera_names_[i]+"/relpose_T", tvec);
+    relpose_T_.push_back(tvec);
+    error += !rosparam_shortcuts::get("flight_pilot", pnh_, camera_names_[i]+"/relpose_R", rvec);
+    relpose_R_.push_back(rvec);
+  }
+  //quadrotor_common::getParam("RelPose_T", relpose_T_, pnh_);
+  //quadrotor_common::getParam("RelPose_R", relpose_R_, pnh_);
   return true;
 }
 
