@@ -11,7 +11,7 @@ class encoder(nn.Module):
         assert (opt.nfeature % 4 == 0)
         self.feature_maps = (opt.nfeature // 4, opt.nfeature // 2, opt.nfeature)
         self.image_encoder = nn.Sequential(
-            nn.Conv2d(self.n_channels * self.n_inputs, self.feature_maps[0], 4, 2, 1),
+            nn.Conv2d(3, self.feature_maps[0], 4, 2, 1),
             nn.Dropout2d(p=opt.dropout, inplace=True),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(self.feature_maps[0], self.feature_maps[1], 4, 2, 1),
