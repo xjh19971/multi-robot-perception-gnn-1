@@ -46,13 +46,13 @@ class decoder(nn.Module):
         self.feature_maps = (self.opt.nfeature // 4, self.opt.nfeature // 2, self.opt.nfeature)
 
         self.image_decoder = nn.Sequential(
-            nn.ConvTranspose2d(self.feature_maps[2], self.feature_maps[1], (4, 4), 2, 1),
+            nn.ConvTranspose2d(self.feature_maps[2], self.feature_maps[1], 4, 2, 1),
             nn.Dropout2d(p=opt.dropout, inplace=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(self.feature_maps[1], self.feature_maps[0], (5, 5), 2, (0, 1)),
+            nn.ConvTranspose2d(self.feature_maps[1], self.feature_maps[0], 4, 2, 1),
             nn.Dropout2d(p=opt.dropout, inplace=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(self.feature_maps[0], 3, (2, 2), 2, (0, 1))
+            nn.ConvTranspose2d(self.feature_maps[0], 3, 4, 2, 1)
         )
 
         # pose_decoder?
@@ -61,7 +61,6 @@ class decoder(nn.Module):
         bsize = h.size(0)
         h = h.view(bsize, self.feature_maps[-1], self.opt.h_height, self.opt.h_width)
         pred_image = self.image_decoder(h)
-        pred_image = pred_image[:, :, :self.opt.height, :self.opt.width].clone()
         pred_image = pred_image.view(bsize, 3, self.opt.height, self.opt.width)
         return pred_image
 
