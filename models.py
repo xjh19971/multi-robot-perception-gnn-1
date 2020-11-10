@@ -52,7 +52,7 @@ class decoder(nn.Module):
             nn.ConvTranspose2d(self.feature_maps[1], self.feature_maps[0], (5, 5), 2, (0, 1)),
             nn.Dropout2d(p=opt.dropout, inplace=True),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.ConvTranspose2d(self.feature_maps[0], self.n_out * self.n_channels, (2, 2), 2, (0, 1))
+            nn.ConvTranspose2d(self.feature_maps[0], 3, (2, 2), 2, (0, 1))
         )
 
         # pose_decoder?
