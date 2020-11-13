@@ -54,7 +54,7 @@ def train(model, device, dataloader, optimizer, epoch, log_interval=50):
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
             optimizer.step()
-
+        batch_num+=1
         if batch_idx % log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * opt.batch_size, len(dataloader.dataset),
