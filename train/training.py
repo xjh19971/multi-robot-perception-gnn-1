@@ -87,8 +87,8 @@ if __name__ == '__main__':
     dataset = MRPGDataSet(opt)
     trainset, valset = torch.utils.data.random_split(dataset,
                                                 [int(0.90 * len(dataset)), len(dataset) - int(0.90 * len(dataset))])
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=0)
-    valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=0)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=8)
+    valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=8)
 
     # define model file name
     opt.model_file = f'{opt.model_dir}/model={opt.model}-encoder={opt.encoder_name}-bsize={opt.batch_size}-lrt={opt.lrt}-posef={opt.nfeature_pose}-dropout={opt.dropout}'
@@ -104,14 +104,14 @@ if __name__ == '__main__':
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         model = models.single_view_model(opt)
         optimizer = optim.Adam(model.parameters(), opt.lrt)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=10000, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
         n_iter = 0
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
