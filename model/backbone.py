@@ -6,8 +6,9 @@ from model.blocks import BasicBlock, BottleNeck
 
 class ResNet(nn.Module):
 
-    def __init__(self, block_type_index, block_num_index):
+    def __init__(self, block_type_index, block_num_index, opt):
         super().__init__()
+        self.opt = opt
         self.block_type = [BasicBlock, BottleNeck]
         self.block_num = [[2, 2, 2, 2],
                           [3, 4, 6, 3],
@@ -49,7 +50,7 @@ class ResNet(nn.Module):
         strides = [stride] + [1] * (num_blocks - 1)
         layers = []
         for stride in strides:
-            layers.append(block(self.in_channels, out_channels, stride))
+            layers.append(block(self.in_channels, out_channels, stride, self.opt.dropout))
             self.in_channels = out_channels * block.expansion
 
         return nn.Sequential(*layers)
@@ -67,14 +68,14 @@ class ResNet(nn.Module):
         output_list.append(output)
         return output_list
 
-def resnet_wrapper(name):
+def resnet_wrapper(name, opt):
     if name == "resnet18":
-        return ResNet(0, 0)
+        return ResNet(0, 0, opt)
     elif name == "resnet34":
-        return ResNet(0, 1)
+        return ResNet(0, 1, opt)
     elif name == "resnet50":
-        return ResNet(1, 2)
+        return ResNet(1, 2, opt)
     elif name == "resnet101":
-        return ResNet(1, 3)
+        return ResNet(1, 3, opt)
     elif name == "resnet152":
-        return ResNet(1, 4)
+        return ResNet(1, 4, opt)
