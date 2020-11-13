@@ -7,8 +7,8 @@ from torchvision import transforms
 class MRPGDataSet(torch.utils.data.Dataset):
     def __init__(self, opt):
         self.opt = opt
-        #self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
-        self.camera_names = ['DroneNN_main', 'DroneNP_main']
+        self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
+        #self.camera_names = ['DroneNN_main', 'DroneNP_main']
         self.img_transforms = transforms.Compose([
             transforms.Resize((256, 256)),
             transforms.ToTensor(),
