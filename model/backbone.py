@@ -21,7 +21,7 @@ class ResNet(nn.Module):
         self.in_channels = 64
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, padding=1, bias=False, stride=2),
+            nn.Conv2d(4, 64, kernel_size=7, padding=1, bias=False, stride=2),
             nn.BatchNorm2d(64),
             nn.ReLU(inplace=True))
         self.pool1 = nn.MaxPool2d(kernel_size=3, stride=2)

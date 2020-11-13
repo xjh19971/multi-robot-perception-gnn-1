@@ -11,8 +11,7 @@ class encoder(nn.Module):
         else:
             self.nfeature_image = 512*4
         # image encoder
-        assert (opt.nfeature % 4 == 0)
-        self.image_encoder = resnet_wrapper(self.opt.encoder_name)
+        self.image_encoder = resnet_wrapper(self.opt.encoder_name, self.opt)
 
         # pose encoder
         self.pose_encoder = nn.Sequential(
@@ -26,8 +25,8 @@ class encoder(nn.Module):
         )
 
     def forward(self, images, poses):
-        images = images.view(-1, images.size(1)//self.opt.camera_num, self.opt.image_size, self.opt.image_size)
-        poses = poses.view(-1, images.size(1)//self.opt.camera_num)
+        images = images.view(-1, images.size(1)*images.size(2)//self.opt.camera_num, self.opt.image_size, self.opt.image_size)
+        poses = poses.view(-1, self.opt.npose)
         h = self.image_encoder(images)[-1]
         h = h.view(h.size(0), -1)
         h += self.pose_encoder(poses)
@@ -43,26 +42,24 @@ class decoder(nn.Module):
         else:
             self.nfeature_image = 512*4
 
-        self.feature_maps = (self.nfeature_image//32, self.nfeature_image//16,
-                             self.nfeature_image // 4, self.nfeature_image // 2, self.nfeature_image)
 
         self.image_decoder = nn.Sequential(
-            TransBlock(self.nfeature_image // 32, self.nfeature_image // 32, 1),
-            TransBlock(self.nfeature_image // 32, self.nfeature_image // 16, 2),
-            TransBlock(self.nfeature_image // 16, self.nfeature_image // 16, 1),
-            TransBlock(self.nfeature_image // 16, self.nfeature_image // 8, 2),
-            TransBlock(self.nfeature_image // 8, self.nfeature_image // 8, 1),
-            TransBlock(self.nfeature_image // 8, self.nfeature_image // 4, 2),
+            TransBlock(self.nfeature_image, self.nfeature_image, 1),
+            TransBlock(self.nfeature_image, self.nfeature_image // 2, 2),
+            TransBlock(self.nfeature_image // 2, self.nfeature_image // 2, 1),
+            TransBlock(self.nfeature_image // 2, self.nfeature_image // 4, 2),
             TransBlock(self.nfeature_image // 4, self.nfeature_image // 4, 1),
-            TransBlock(self.nfeature_image // 4, self.nfeature_image // 1, 4),
+            TransBlock(self.nfeature_image // 4, self.nfeature_image // 8, 2),
+            TransBlock(self.nfeature_image // 8, 4, 1),
+            nn.Upsample(scale_factor=(4, 4)),
         )
 
         # pose_decoder?
 
     def forward(self, h):
-        h = h.view(h.size(0), self.nfeature_image//32, self.opt.h_height, self.opt.h_width)
+        h = h.view(h.size(0), self.nfeature_image, self.opt.image_size//32, self.opt.image_size//32)
         pred_image = self.image_decoder(h)
-        pred_image = pred_image.view(-1, pred_image.size(1)*self.opt.camera_num, self.opt.image_size, self.opt.image_size)
+        pred_image = pred_image.view(-1, self.opt.camera_num, 4, self.opt.image_size, self.opt.image_size)
         return pred_image
 
 
