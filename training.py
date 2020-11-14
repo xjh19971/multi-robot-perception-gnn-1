@@ -17,7 +17,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
 parser.add_argument('-target', type=str, default='train')
-parser.add_argument('-batch_size', type=int, default=8)
+parser.add_argument('-batch_size', type=int, default=16)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
 parser.add_argument('-lrt', type=float, default=0.01)
 parser.add_argument('-encoder_name', type=str, default="resnet34")
@@ -101,20 +101,20 @@ if __name__ == '__main__':
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         model = models.single_view_model(opt)
         optimizer = optim.Adam(model.parameters(), opt.lrt)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.1)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
         n_iter = 0
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
     model.cuda()
     print('[training]')
-    for epoch in range(200):
+    for epoch in range(1000):
         t0 = time.time()
         train_losses = train(model,opt.device, trainloader,optimizer,epoch)
         val_losses = test(model,opt.device, trainloader)
@@ -124,7 +124,7 @@ if __name__ == '__main__':
         torch.save({'model': model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
-                    'scheduler': scheduler}, opt.model_file + '.model')
+                    'scheduler': scheduler.state_dict()}, opt.model_file + '.model')
         model.cuda()
         log_string = f'step {n_iter} | '
         log_string += utils.format_losses(*train_losses, split='train')

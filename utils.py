@@ -1,4 +1,5 @@
-import os,datetime
+import os
+from datetime import datetime
 # Logging function
 def log(fname, s):
     if not os.path.isdir(os.path.dirname(fname)):
