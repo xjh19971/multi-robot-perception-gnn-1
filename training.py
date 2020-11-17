@@ -113,9 +113,8 @@ if __name__ == '__main__':
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
     if opt.multi_gpu:
-        model = torch.nn.DataParallel(model,device_ids=[0, 1])
-    else:
-        model.cuda()
+        model = torch.nn.DataParallel(model, device_ids=[0, 1])
+    model = model.cuda()
     print('[training]')
     for epoch in range(1000):
         t0 = time.time()
