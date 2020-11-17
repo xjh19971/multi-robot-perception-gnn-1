@@ -14,7 +14,7 @@ class encoder(nn.Module):
         self.image_encoder = pretrained_model
 
     def forward(self, images):
-        images = images.view(-1, images.size(1)*images.size(2)//self.opt.camera_num, self.opt.image_size, self.opt.image_size)
+        images = images.view(-1, 3, self.opt.image_size, self.opt.image_size)
         h = self.image_encoder(images)
         h = h.view(h.size(0), -1)
         return h
