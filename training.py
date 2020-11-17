@@ -32,7 +32,7 @@ opt = parser.parse_args()
 
 def compute_MSE_loss(targets, predictions, reduction='mean'):
     target_depths = targets
-    pred_depths = predictions
+    pred_depths = predictions.view(-1, opt.camera_num, 3, opt.image_size, opt.image_size)
     loss = F.mse_loss(pred_depths, target_depths, reduction=reduction)
     return loss
 
