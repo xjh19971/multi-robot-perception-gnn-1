@@ -7,7 +7,7 @@ import utils
 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 #################################################
 # Train an action-conditional forward model
 #################################################
@@ -24,10 +24,10 @@ parser.add_argument('-lrt', type=float, default=0.01)
 parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
-parser.add_argument('-device', type=str, default="cuda:0")
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=int, default=5)
 parser.add_argument('-pretrained', action="store_true")
+parser.add_argument('-multi_gpu', action="store_true")
 opt = parser.parse_args()
 
 def compute_MSE_loss(targets, predictions, reduction='mean'):
@@ -36,15 +36,15 @@ def compute_MSE_loss(targets, predictions, reduction='mean'):
     loss = F.mse_loss(pred_depths, target_depths, reduction=reduction)
     return loss
 
-def train(model, device, dataloader, optimizer, epoch, log_interval=50):
+def train(model, dataloader, optimizer, epoch, log_interval=50):
     model.train()
     train_loss = 0
     batch_num = 0
     for batch_idx, data in enumerate(dataloader):
         optimizer.zero_grad()
         images, poses, depths = data
-        images, poses, depths = images.to(device), poses.to(device), depths.to(device)
-        pred_depth = model(images,poses)
+        images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
+        pred_depth = model(images, poses)
         loss = compute_MSE_loss(depths, pred_depth)
         train_loss += loss
         # VAEs get NaN loss sometimes, so check for it
@@ -58,7 +58,7 @@ def train(model, device, dataloader, optimizer, epoch, log_interval=50):
                        100. * batch_idx / len(dataloader), loss.item()))
     avg_train_loss = train_loss/batch_num
     return [avg_train_loss]
-def test(model, device, dataloader):
+def test(model, dataloader):
     model.eval()
     test_loss = 0
     batch_num = 0
@@ -66,7 +66,7 @@ def test(model, device, dataloader):
         for batch_idx, data in enumerate(dataloader):
             optimizer.zero_grad()
             images, poses, depths = data
-            images, poses, depths = images.to(device), poses.to(device), depths.to(device)
+            images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses)
             test_loss += compute_MSE_loss(depths, pred_depth)
             batch_num+=1
@@ -112,12 +112,15 @@ if __name__ == '__main__':
         n_iter = 0
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
-    model.cuda()
+    if opt.multi_gpu:
+        model = torch.nn.DataParallel(model,device_ids=[0, 1])
+    else:
+        model.cuda()
     print('[training]')
     for epoch in range(1000):
         t0 = time.time()
-        train_losses = train(model,opt.device, trainloader,optimizer,epoch)
-        val_losses = test(model,opt.device, trainloader)
+        train_losses = train(model, trainloader, optimizer, epoch)
+        val_losses = test(model, trainloader)
         scheduler.step()
         n_iter += 1
         model.cpu()
