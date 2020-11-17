@@ -18,16 +18,16 @@ parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
 parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=16)
-parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
+parser.add_argument('-dropout', type=float, default=0.2, help='regular dropout')
 parser.add_argument('-lrt', type=float, default=0.01)
-parser.add_argument('-encoder_name', type=str, default="resnet34")
+#parser.add_argument('-encoder_name', type=str, default="resnet34")
 parser.add_argument('-npose', type=int, default=8)
-parser.add_argument('-nfeature_pose', type=int, default=256)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-device', type=str, default="cuda:0")
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=int, default=5)
+parser.add_argument('-pretrained', action="store_true")
 opt = parser.parse_args()
 
 def compute_MSE_loss(targets, predictions, reduction='mean'):
@@ -39,7 +39,7 @@ def compute_MSE_loss(targets, predictions, reduction='mean'):
 def train(model, device, dataloader, optimizer, epoch, log_interval=50):
     model.train()
     train_loss = 0
-    batch_num =0
+    batch_num = 0
     for batch_idx, data in enumerate(dataloader):
         optimizer.zero_grad()
         images, poses, depths = data
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=8)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-encoder={opt.encoder_name}-bsize={opt.batch_size}-lrt={opt.lrt}-posef={opt.nfeature_pose}-dropout={opt.dropout}'
+    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}'
     opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
@@ -101,14 +101,14 @@ if __name__ == '__main__':
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         model = models.single_view_model(opt)
         optimizer = optim.Adam(model.parameters(), opt.lrt)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=100, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
         n_iter = 0
 
     stats = torch.load(opt.dataset + '/data_stats.pth')

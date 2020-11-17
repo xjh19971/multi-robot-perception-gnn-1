@@ -4,13 +4,16 @@ import torch
 from PIL import Image
 from torchvision import transforms
 
+
 class MRPGDataSet(torch.utils.data.Dataset):
     def __init__(self, opt):
         self.opt = opt
+        #self.camera_names = ['DroneNN_main']
         self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
-        #self.camera_names = ['DroneNN_main', 'DroneNP_main']
+        assert self.opt.camera_num == len(self.camera_names)
+
         self.img_transforms = transforms.Compose([
-            transforms.Resize((256, 256)),
+            transforms.Resize((self.opt.image_size, self.opt.image_size)),
             transforms.ToTensor(),
         ])
         random.seed(opt.seed)
@@ -18,8 +21,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
         torch.manual_seed(opt.seed)
         torch.cuda.manual_seed(opt.seed)
 
-        image_path = self.opt.dataset + '/depth/async_rotate_fog_000_clear/'
-        depth_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
+        image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
+        depth_path = self.opt.dataset + '/depth/async_rotate_fog_000_clear/'
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
         for camera in self.camera_names:
@@ -47,7 +50,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
                         image = Image.open(f'{file_name}')
                         if self.img_transforms is not None:
                             image = self.img_transforms(image)
-                        camera_objects[file_name[-10:-4]] = [file_name[-10:-4],image]
+                            image = image[0:3, :, :]
+                        camera_objects[file_name[-10:-4]] = [file_name[-10:-4], image]
                 for dir_data in depth_dirs:
                     files_path = depth_path + dir_data + '/' + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.png')
@@ -57,6 +61,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
                             depth = Image.open(f'{file_name}')
                             if self.img_transforms is not None:
                                 depth = self.img_transforms(depth)
+                                depth = depth[0:3, :, :]
                             camera_objects[file_name[-10:-4]].append(depth)
                 for dir_data in pose_dirs:
                     files_path = pose_path + dir_data + '/' + self.camera_names[i]
@@ -67,6 +72,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
                             with open(f'{file_name}', 'r') as f:
                                 pose = f.readlines()
                                 pose = list(map(float, pose))
+                                pose = torch.tensor(pose)
                                 camera_objects[file_name[-10:-4]].append(pose)
 
                 consistent_objects = []
@@ -92,7 +98,14 @@ class MRPGDataSet(torch.utils.data.Dataset):
                     self.images[i].append(v[i][0])
                     self.depths[i].append(v[i][1])
                     self.poses[i].append(v[i][2])
-        self.n_samples = len(self.images[0])
+        for i in range(len(self.camera_names)):
+            self.images[i] = torch.stack(self.images[i], dim=0)
+            self.depths[i] = torch.stack(self.depths[i], dim=0)
+            self.poses[i] = torch.stack(self.poses[i], dim=0)
+        self.images = torch.stack(self.images, dim=1)
+        self.depths = torch.stack(self.depths, dim=1)
+        self.poses = torch.stack(self.poses, dim=1)
+        self.n_samples = len(self.images)
         print(f'[Number of samples for each camera: {self.n_samples}]')
 
         splits_path = self.opt.dataset + '/splits.pth'
@@ -117,20 +130,16 @@ class MRPGDataSet(torch.utils.data.Dataset):
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             stats = torch.load(stats_path)
-            self.poses_mean = stats.get('poses_mean')
-            self.poses_std = stats.get('poses_std')
+            self.images_mean = stats.get('images_mean')
+            self.images_std = stats.get('images_std')
         else:
-            print('[computing action stats]')
-            all_poses = []
-            for i in range(len(self.camera_names)):
-                for j in range(len(self.poses[i])):
-                    all_poses.append(torch.tensor(self.poses[i][j]))
-            all_poses = torch.stack(all_poses, 0)
-            self.poses_mean = torch.mean(all_poses, 0)
-            self.poses_std = torch.std(all_poses, 0)
-
-            torch.save({'poses_mean': self.poses_mean,
-                        'poses_std': self.poses_std}
+            print('[computing image stats]')
+            all_images = self.images.view(-1, 3, self.images.size(3), self.images.size(4))
+            # Compute mean and std for each channel
+            self.images_mean = torch.mean(all_images, (0, 2, 3))
+            self.images_std = torch.std(all_images, (0, 2, 3))
+            torch.save({'images_mean': self.images_mean,
+                        'images_std': self.images_std}
                        , stats_path)
 
     def __len__(self):
@@ -145,35 +154,26 @@ class MRPGDataSet(torch.utils.data.Dataset):
         pose = []
         depth = []
         for i in range(len(self.camera_names)):
-            image.append(self.images[i][real_index])
-            pose.append(torch.tensor(self.poses[i][real_index]))
-            depth.append(self.depths[i][real_index])
-        image = torch.stack(image, dim=0)
-        pose = torch.stack(pose,dim=0)
-        depth = torch.stack(depth,dim=0)
-        # image = self.normalise_image(image)
-        pose = self.normalise_pose(pose)
-        # depth = self.normalise_image(depth)
+            image.append(self.images[real_index])
+            pose.append(self.poses[real_index])
+            depth.append(self.depths[real_index])
+        image = torch.cat(image, dim=0)
+        pose = torch.cat(pose, dim=0)
+        depth = torch.cat(depth, dim=0)
+        image = self.normalise_image(image)
 
         return image, pose, depth
 
-    @staticmethod
-    def normalise_image(images):
-        return images.float().div_(255.0)
+    def normalise_image(self, images):
+        images -= self.images_mean.view(1, 3, 1, 1)
+        images /= self.images_std.view(1, 3, 1, 1)
+        return images
 
-    def normalise_pose(self, pose):
-        pose -= self.poses_mean.view(1, 8)
-        pose /= (1e-8 + self.poses_std.view(1, 8))
-        return pose
+    def unormalse_image(self, images):
+        images *= self.images_std.view(1, 1, 3, 1, 1)
+        images += self.images_mean.view(1, 1, 3, 1, 1)
+        return images
 
-    @staticmethod
-    def unormalse_image(images):
-        return images.mul_(255.0).byte()
-
-    def unnormalise_pose(self, pose):
-        pose *= (1e-8 + self.poses_std.view(1, 8))
-        pose += self.poses_mean.view(1, 8)
-        return pose
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
