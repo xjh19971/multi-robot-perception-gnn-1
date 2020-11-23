@@ -1,5 +1,11 @@
-import sys
-import numpy, random, pdb, math, pickle, glob, time, os, re, argparse
+import argparse
+import cv2
+import glob
+import math
+import numpy
+import numpy as np
+import os
+import random
 import torch
 from PIL import Image
 from torchvision import transforms
@@ -8,7 +14,7 @@ from torchvision import transforms
 class MRPGDataSet(torch.utils.data.Dataset):
     def __init__(self, opt):
         self.opt = opt
-        #self.camera_names = ['DroneNN_main']
+        # self.camera_names = ['DroneNN_main']
         self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
         assert self.opt.camera_num == len(self.camera_names)
 
@@ -22,7 +28,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         torch.cuda.manual_seed(opt.seed)
 
         image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
-        depth_path = self.opt.dataset + '/depth/async_rotate_fog_000_clear/'
+        depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
         for camera in self.camera_names:
@@ -58,10 +64,14 @@ class MRPGDataSet(torch.utils.data.Dataset):
                     file_names.sort()
                     for file_name in file_names:
                         if file_name[-10:-4] in camera_objects:
-                            depth = Image.open(f'{file_name}')
-                            if self.img_transforms is not None:
-                                depth = self.img_transforms(depth)
-                                depth = depth[0:3, :, :]
+                            depth = cv2.imread(f'{file_name}')
+                            depth = np.array(
+                                depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (256 ** 1),
+                                dtype=np.uint32)
+                            depth = depth.view(np.float32)
+                            depth = cv2.resize(depth, (self.opt.image_size, self.opt.image_size),
+                                               interpolation=cv2.INTER_CUBIC)
+                            depth = torch.tensor(depth).view(1, self.opt.image_size, self.opt.image_size)
                             camera_objects[file_name[-10:-4]].append(depth)
                 for dir_data in pose_dirs:
                     files_path = pose_path + dir_data + '/' + self.camera_names[i]
@@ -82,6 +92,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
                 print(f'[Saving {all_data_path[i]} to disk]')
                 torch.save(consistent_objects, all_data_path[i])
+
+                del consistent_objects, camera_objects
 
         print(f'[Loading all data]')
         consistent_camera_id = {}
@@ -129,18 +141,18 @@ class MRPGDataSet(torch.utils.data.Dataset):
         stats_path = self.opt.dataset + '/data_stats.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
-            stats = torch.load(stats_path)
-            self.images_mean = stats.get('images_mean')
-            self.images_std = stats.get('images_std')
+            self.stats = torch.load(stats_path)
         else:
-            print('[computing image stats]')
+            print('[computing image and depth stats]')
+            self.stats = dict()
             all_images = self.images.view(-1, 3, self.images.size(3), self.images.size(4))
+            all_depths = self.depths.view(-1, 1, self.depths.size(3), self.depths.size(4))
             # Compute mean and std for each channel
-            self.images_mean = torch.mean(all_images, (0, 2, 3))
-            self.images_std = torch.std(all_images, (0, 2, 3))
-            torch.save({'images_mean': self.images_mean,
-                        'images_std': self.images_std}
-                       , stats_path)
+            self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
+            self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
+            self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
+            self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+            torch.save(self.stats, stats_path)
 
     def __len__(self):
         return len(self.test_indx) if self.opt.target == 'test' else len(self.train_val_indx)
@@ -160,19 +172,33 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = torch.cat(image, dim=0)
         pose = torch.cat(pose, dim=0)
         depth = torch.cat(depth, dim=0)
-        image = self.normalise_image(image)
-
+        image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
+        # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         return image, pose, depth
 
-    def normalise_image(self, images):
-        images -= self.images_mean.view(1, 3, 1, 1)
-        images /= self.images_std.view(1, 3, 1, 1)
-        return images
+    @staticmethod
+    def normalise_object(objects, mean, std, name):
+        if name == 'image':
+            dim = 3
+        else:
+            dim = 1
+        objects -= mean.view(1, dim, 1, 1)
+        objects /= std.view(1, dim, 1, 1)
+        return objects
 
-    def unormalse_image(self, images):
-        images *= self.images_std.view(1, 1, 3, 1, 1)
-        images += self.images_mean.view(1, 1, 3, 1, 1)
-        return images
+    @staticmethod
+    def unormalise_object(objects, mean, std, name, use_cuda=True):
+        if name == 'image':
+            dim = 3
+        else:
+            dim = 1
+        if use_cuda:
+            objects *= mean.view(1, dim, 1, 1).cuda()
+            objects += std.view(1, dim, 1, 1).cuda()
+        else:
+            objects *= mean.view(1, dim, 1, 1)
+            objects += std.view(1, dim, 1, 1)
+        return objects
 
 
 if __name__ == '__main__':
@@ -185,5 +211,5 @@ if __name__ == '__main__':
     dataset = MRPGDataSet(opt)
     trainset, _ = torch.utils.data.random_split(dataset,
                                                 [int(0.90 * len(dataset)), len(dataset) - int(0.90 * len(dataset))])
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=0)
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=4)
     a_batch = next(iter(trainloader))
