@@ -1,9 +1,10 @@
 import argparse
 import math
-import numpy
 import os
 import random
 import time
+
+import numpy
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
@@ -53,10 +54,13 @@ def compute_Depth_SILog(target_depth, predicted_depth, stats, lambdad=0.0):
     #                                             stats['depths_std'], 'depth')
     SILog = 0
     for i in range(len(target_depth)):
-        valid_mask = target_depth[i] > 0
-        num_pixels = torch.sum(valid_mask)
-        distance = predicted_depth[i][valid_mask] - target_depth[i][valid_mask]
-        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(torch.sum(distance))*lambdad / torch.square(
+        valid_target = target_depth[i] > 0
+        invalid_pred = predicted_depth[i] <= 0
+        num_pixels = torch.sum(valid_target)
+        predicted_depth[i][invalid_pred] = 1e-8
+        distance = torch.log(predicted_depth[i][valid_target]) - torch.log(target_depth[i][valid_target])
+        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(
+            torch.sum(distance)) * lambdad / torch.square(
             num_pixels)
     SILog /= target_depth.size(0)
     return SILog
