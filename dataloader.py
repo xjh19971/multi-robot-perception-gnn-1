@@ -30,7 +30,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
-        for camera in self.camera_names:
+        for camera in self.opt.camera_name:
             all_data_path.append(self.opt.dataset + '/' + camera + '_all_data.pth')
 
         self.images = [[] for i in range(self.opt.camera_num)]
@@ -38,6 +38,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         self.poses = [[] for i in range(self.opt.camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
+            assert(self.opt.camera_num==5)
             image_dirs = next(os.walk(image_path))[1]
             image_dirs.sort()
             depth_dirs = next(os.walk(depth_path))[1]
@@ -94,21 +95,31 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
                 del consistent_objects, camera_objects
 
+            print(f'[Reload all data to get valid index]')
+            consistent_camera_objects = []
+            consistent_camera_id = {}
+            for i in range(len(all_data_path)):
+                data = torch.load(all_data_path[i])
+                for j in range(len(data)):
+                    if not data[j][0] in consistent_camera_id:
+                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3]]]
+                    else:
+                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
+            for k, v in consistent_camera_id.items():
+                if len(v) == self.opt.camera_num:
+                    for i in range(self.opt.camera_num):
+                        consistent_camera_objects[i].append([v[i][0],v[i][1],v[i][2]])
+            for i in range(len(all_data_path)):
+                torch.save(consistent_camera_objects[i], all_data_path[i])
+            del consistent_camera_objects, consistent_camera_id
+            
         print(f'[Loading all data]')
-        consistent_camera_id = {}
         for i in range(len(all_data_path)):
             data = torch.load(all_data_path[i])
             for j in range(len(data)):
-                if not data[j][0] in consistent_camera_id:
-                    consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3]]]
-                else:
-                    consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
-        for k, v in consistent_camera_id.items():
-            if len(v) == self.opt.camera_num:
-                for i in range(self.opt.camera_num):
-                    self.images[i].append(v[i][0])
-                    self.depths[i].append(v[i][1])
-                    self.poses[i].append(v[i][2])
+                self.images[i].append(data[i][0])
+                self.depths[i].append(data[i][1])
+                self.poses[i].append(data[i][2])
 
         splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
