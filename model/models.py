@@ -9,7 +9,7 @@ class encoder(nn.Module):
         super(encoder, self).__init__()
         self.opt = opt
         if self.opt.pretrained:
-            pretrained_model = models.mobilenet_v2(pretrained=True, )
+            pretrained_model = models.mobilenet_v2(pretrained=True)
         else:
             pretrained_model = models.mobilenet_v2()
         pretrained_model = pretrained_model.features
@@ -38,6 +38,7 @@ class decoder(nn.Module):
             TransBlock(self.nfeature_array[2], self.nfeature_array[3], 2),
             TransBlock(self.nfeature_array[3], 1, 1),
             nn.Upsample(scale_factor=(4, 4), mode="bicubic"),
+            nn.ReLU()
         )
 
     def forward(self, h):

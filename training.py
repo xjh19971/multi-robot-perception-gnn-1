@@ -38,20 +38,21 @@ parser.add_argument('-multi_gpu', action="store_true")
 opt = parser.parse_args()
 
 
-def compute_MSE_loss(targets, predictions, reduction='mean'):
-    target_depths = targets.view(-1, opt.camera_num, 1, opt.image_size, opt.image_size)
-    pred_depths = predictions.view(-1, opt.camera_num, 1, opt.image_size, opt.image_size)
-    loss = F.mse_loss(pred_depths, target_depths, reduction=reduction)
-    return loss
-
-
-def compute_Depth_SILog(target_depth, predicted_depth, stats, lambdad=0.0):
+def compute_MSE_loss(target_depth, predicted_depth, reduction='mean'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    # target_depth = dataset.unormalise_object(target_depth, stats['depths_mean'],
-    #                                          stats['depths_std'], 'depth')
-    # predicted_depth = dataset.unormalise_object(predicted_depth, stats['depths_mean'],
-    #                                             stats['depths_std'], 'depth')
+    loss = F.mse_loss(predicted_depth, target_depth, reduction=reduction)
+    return loss
+
+def compute_smooth_L1loss(target_depth, predicted_depth):
+    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
+    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
+    loss = F.smooth_l1_loss(predicted_depth, target_depth, size_average=True)
+    return loss
+
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
+    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
+    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
         valid_target = target_depth[i] > 0
@@ -76,9 +77,9 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses)
         # loss = compute_MSE_loss(depths, pred_depth)
-        loss = compute_Depth_SILog(depths, pred_depth, stats, lambdad=0.5)
+        # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5)
+        loss = compute_smooth_L1loss(depths, pred_depth)
         train_loss += loss
-        # VAEs get NaN loss sometimes, so check for it
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
             optimizer.step()
@@ -101,7 +102,8 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses)
             # test_loss += compute_MSE_loss(depths, pred_depth)
-            test_loss += compute_Depth_SILog(depths, pred_depth, stats, lambdad=0.0)
+            # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
+            test_loss += compute_smooth_L1loss(depths, pred_depth)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -114,7 +116,6 @@ if __name__ == '__main__':
     numpy.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
     torch.cuda.manual_seed(opt.seed)
-    # define colored_lane symbol for dataloader
     dataset = MRPGDataSet(opt)
     trainset, valset = torch.utils.data.random_split(dataset,
                                                      [int(0.90 * len(dataset)),
@@ -123,7 +124,7 @@ if __name__ == '__main__':
     valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=2)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}'
+    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_num={opt.camera_num}'
     opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
@@ -135,14 +136,14 @@ if __name__ == '__main__':
         model = checkpoint['model']
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         optimizer.load_state_dict(checkpoint['optimizer'])
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         model = models.single_view_model(opt)
         optimizer = optim.Adam(model.parameters(), opt.lrt)
-        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         n_iter = 0
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
@@ -156,7 +157,7 @@ if __name__ == '__main__':
         t1 = time.time()
         print("Time per epoch= %d s" % (t1 - t0))
         val_losses = test(model, valloader, dataset.stats)
-        scheduler.step()
+        scheduler.step(val_losses[0])
         n_iter += 1
         model.cpu()
         torch.save({'model': model,

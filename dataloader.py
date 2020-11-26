@@ -16,7 +16,6 @@ class MRPGDataSet(torch.utils.data.Dataset):
         self.opt = opt
         # self.camera_names = ['DroneNN_main']
         self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
-        assert self.opt.camera_num == len(self.camera_names)
 
         self.img_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
@@ -34,9 +33,9 @@ class MRPGDataSet(torch.utils.data.Dataset):
         for camera in self.camera_names:
             all_data_path.append(self.opt.dataset + '/' + camera + '_all_data.pth')
 
-        self.images = [[] for i in range(len(self.camera_names))]
-        self.depths = [[] for i in range(len(self.camera_names))]
-        self.poses = [[] for i in range(len(self.camera_names))]
+        self.images = [[] for i in range(self.opt.camera_num)]
+        self.depths = [[] for i in range(self.opt.camera_num)]
+        self.poses = [[] for i in range(self.opt.camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             image_dirs = next(os.walk(image_path))[1]
@@ -46,7 +45,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             pose_dirs = next(os.walk(pose_path))[1]
             pose_dirs.sort()
 
-            for i in range(len(self.camera_names)):
+            for i in range(self.opt.camera_num):
                 camera_objects = {}
                 for dir_data in image_dirs:
                     files_path = image_path + dir_data + '/' + self.camera_names[i]
@@ -105,38 +104,34 @@ class MRPGDataSet(torch.utils.data.Dataset):
                 else:
                     consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
         for k, v in consistent_camera_id.items():
-            if len(v) == len(self.camera_names):
-                for i in range(len(self.camera_names)):
+            if len(v) == self.opt.camera_num:
+                for i in range(self.opt.camera_num):
                     self.images[i].append(v[i][0])
                     self.depths[i].append(v[i][1])
                     self.poses[i].append(v[i][2])
-        for i in range(len(self.camera_names)):
-            self.images[i] = torch.stack(self.images[i], dim=0)
-            self.depths[i] = torch.stack(self.depths[i], dim=0)
-            self.poses[i] = torch.stack(self.poses[i], dim=0)
-        self.images = torch.stack(self.images, dim=1)
-        self.depths = torch.stack(self.depths, dim=1)
-        self.poses = torch.stack(self.poses, dim=1)
-        self.n_samples = len(self.images)
-        print(f'[Number of samples for each camera: {self.n_samples}]')
 
         splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
-            print(f'[loading test data splits: {splits_path}]')
+            print(f'[loading data splits: {splits_path}]')
             self.splits = torch.load(splits_path)
+            self.n_samples = self.splits.get('n_samples')
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
         else:
-            print('[generating test data splits]')
+            print('[generating data splits]')
             rgn = numpy.random.RandomState(0)
+            self.n_samples = len(self.images[0])
             perm = rgn.permutation(self.n_samples)
             n_train_val = int(math.floor(self.n_samples * 0.9))
             self.train_val_indx = perm[0: n_train_val]
             self.test_indx = perm[n_train_val:]
             torch.save(dict(
+                n_samples=self.n_samples,
                 train_val_indx=self.train_val_indx,
                 test_indx=self.test_indx,
             ), splits_path)
+
+        print(f'[Number of samples for each camera: {self.n_samples}]')
 
         stats_path = self.opt.dataset + '/data_stats.pth'
         if os.path.isfile(stats_path):
@@ -144,9 +139,17 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.stats = torch.load(stats_path)
         else:
             print('[computing image and depth stats]')
+            assert self.opt.camera_num==5
+            stat_images = [[] for i in range(self.opt.camera_num)]
+            stat_depths = [[] for i in range(self.opt.camera_num)]
+            for i in range(self.opt.camera_num):
+                stat_images[i] = torch.stack(self.images[i], dim=0)
+                stat_depths[i] = torch.stack(self.depths[i], dim=0)
+            stat_images = torch.stack(stat_images, dim=1)
+            stat_depths = torch.stack(stat_depths, dim=1)
             self.stats = dict()
-            all_images = self.images.view(-1, 3, self.images.size(3), self.images.size(4))
-            all_depths = self.depths.view(-1, 1, self.depths.size(3), self.depths.size(4))
+            all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
+            all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
             # Compute mean and std for each channel
             self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
             self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
@@ -165,10 +168,10 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
-        for i in range(len(self.camera_names)):
-            image.append(self.images[real_index])
-            pose.append(self.poses[real_index])
-            depth.append(self.depths[real_index])
+        for i in range(self.opt.camera_num):
+            image.append(self.images[i][real_index])
+            pose.append(self.poses[i][real_index])
+            depth.append(self.depths[i][real_index])
         image = torch.cat(image, dim=0)
         pose = torch.cat(pose, dim=0)
         depth = torch.cat(depth, dim=0)

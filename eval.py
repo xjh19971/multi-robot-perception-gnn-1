@@ -29,19 +29,18 @@ parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=int, default=5)
 opt = parser.parse_args()
 
-def compute_Depth_SILog(target_depth, predicted_depth, stats, lambdad=0.0):
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    # target_depth = dataset.unormalise_object(target_depth, stats['depths_mean'],
-    #                                          stats['depths_std'], 'depth')
-    # predicted_depth = dataset.unormalise_object(predicted_depth, stats['depths_mean'],
-    #                                             stats['depths_std'], 'depth')
     SILog = 0
     for i in range(len(target_depth)):
-        valid_mask = target_depth[i] > 0
-        num_pixels = torch.sum(valid_mask)
-        distance = predicted_depth[i][valid_mask] - target_depth[i][valid_mask]
-        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(torch.sum(distance))*lambdad / torch.square(
+        valid_target = target_depth[i] > 0
+        invalid_pred = predicted_depth[i] <= 0
+        num_pixels = torch.sum(valid_target)
+        predicted_depth[i][invalid_pred] = 1e-8
+        distance = torch.log(predicted_depth[i][valid_target]) - torch.log(target_depth[i][valid_target])
+        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(
+            torch.sum(distance)) * lambdad / torch.square(
             num_pixels)
     SILog /= target_depth.size(0)
     return SILog
@@ -56,7 +55,7 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses)
             # test_loss += compute_MSE_loss(depths, pred_depth)
-            test_loss += compute_Depth_SILog(depths, pred_depth, stats, lambdad=0.0)
+            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
