@@ -96,7 +96,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
                 del consistent_objects, camera_objects
 
             print(f'[Reload all data to get valid index]')
-            consistent_camera_objects = []
+            consistent_camera_objects = [[] for i in range(self.opt.camera_num)]
             consistent_camera_id = {}
             for i in range(len(all_data_path)):
                 data = torch.load(all_data_path[i])
