@@ -6,6 +6,7 @@ import time
 
 import numpy
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
@@ -35,6 +36,7 @@ parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=int, default=5)
 parser.add_argument('-pretrained', action="store_true")
 parser.add_argument('-multi_gpu', action="store_true")
+parser.add_argument('-epoch', type=int, default=200)
 opt = parser.parse_args()
 
 
@@ -44,10 +46,10 @@ def compute_MSE_loss(target_depth, predicted_depth, reduction='mean'):
     loss = F.mse_loss(predicted_depth, target_depth, reduction=reduction)
     return loss
 
-def compute_smooth_L1loss(target_depth, predicted_depth):
+def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    loss = F.smooth_l1_loss(predicted_depth, target_depth, size_average=True)
+    loss = F.smooth_l1_loss(predicted_depth, target_depth, reduction=reduction)
     return loss
 
 def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
@@ -151,7 +153,7 @@ if __name__ == '__main__':
         model = torch.nn.DataParallel(model, device_ids=[0, 1])
     model.cuda()
     print('[training]')
-    for epoch in range(1000):
+    for epoch in range(opt.epoch):
         t0 = time.time()
         train_losses = train(model, trainloader, optimizer, epoch, dataset.stats)
         t1 = time.time()
