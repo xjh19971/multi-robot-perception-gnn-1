@@ -30,8 +30,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
         depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
-        for camera in range(self.opt.camera_num):
-            all_data_path.append(self.opt.dataset + '/' + camera + '_all_data.pth')
+        for i in range(self.opt.camera_num):
+            all_data_path.append(self.opt.dataset + '/' + self.camera_names[i] + '_all_data.pth')
 
         self.images = [[] for i in range(self.opt.camera_num)]
         self.depths = [[] for i in range(self.opt.camera_num)]
