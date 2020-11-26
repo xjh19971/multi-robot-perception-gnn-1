@@ -185,8 +185,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
             dim = 3
         else:
             dim = 1
-        objects -= mean.view(1, dim, 1, 1)
-        objects /= std.view(1, dim, 1, 1)
+        objects -= mean.view(1, 1, dim, 1, 1)
+        objects /= std.view(1, 1, dim, 1, 1)
         return objects
 
     @staticmethod
@@ -196,8 +196,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
         else:
             dim = 1
         if use_cuda:
-            objects *= mean.view(1, dim, 1, 1).cuda()
-            objects += std.view(1, dim, 1, 1).cuda()
+            objects *= mean.view(1, 1, dim, 1, 1).cuda()
+            objects += std.view(1, 1, dim, 1, 1).cuda()
         else:
             objects *= mean.view(1, dim, 1, 1)
             objects += std.view(1, dim, 1, 1)
