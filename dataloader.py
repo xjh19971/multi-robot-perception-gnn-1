@@ -172,9 +172,9 @@ class MRPGDataSet(torch.utils.data.Dataset):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
-        image = torch.cat(image, dim=0)
-        pose = torch.cat(pose, dim=0)
-        depth = torch.cat(depth, dim=0)
+        image = torch.stack(image, dim=0)
+        pose = torch.stack(pose, dim=0)
+        depth = torch.stack(depth, dim=0)
         image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
         # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         return image, pose, depth
