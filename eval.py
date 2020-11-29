@@ -72,7 +72,7 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=opt.batch_size, shuffle=False, num_workers=0)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}'
+    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_num={opt.camera_num}'
     opt.model_file += f'-seed={opt.seed}'
     print(f'[will load model: {opt.model_file}]')
     mfile = opt.model_file + '.model'
