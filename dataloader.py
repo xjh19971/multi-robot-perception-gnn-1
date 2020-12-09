@@ -189,7 +189,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
-        for i in range(self.opt.camera_num if self.opt.target == 'train' else len(self.camera_names)):
+        for i in range(len(self.camera_names) if self.opt.target == 'test' else self.opt.camera_num):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
