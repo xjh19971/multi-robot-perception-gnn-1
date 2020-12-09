@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
-parser.add_argument('-model_file', type=str, default='model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1.model')
+parser.add_argument('-model_file', type=str, default='model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1')
 parser.add_argument('-target', type=str, default='generate')
 parser.add_argument('-batch_size', type=int, default=1)
 parser.add_argument('-npose', type=int, default=8)
