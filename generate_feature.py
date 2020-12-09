@@ -82,7 +82,7 @@ if __name__ == '__main__':
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
-    model_num = re.match('camera_num=\d', mfile)
+    model_num = re.search("camera_num=\d", "model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1") #
     store_path = opt.dataset + '/generated_data/' + trainset.camera_names[0] + \
                  f'_all_data_c{opt.camera_num}m{model_num.group(0)[-1]}.pth'
 
