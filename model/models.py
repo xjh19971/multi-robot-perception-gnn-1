@@ -55,7 +55,9 @@ class single_view_model(nn.Module):
         self.encoder = encoder(self.opt)
         self.decoder = decoder(self.opt)
 
-    def forward(self, image, pose):
+    def forward(self, image, pose, extract_feature=False):
         h = self.encoder(image)
+        if extract_feature:
+            return h
         pred_image = self.decoder(h)
         return pred_image

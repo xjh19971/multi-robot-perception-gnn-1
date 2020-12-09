@@ -1,11 +1,12 @@
 import argparse
-import cv2
 import glob
 import math
-import numpy
-import numpy as np
 import os
 import random
+
+import cv2
+import numpy
+import numpy as np
 import torch
 from PIL import Image
 from torchvision import transforms
@@ -14,7 +15,6 @@ from torchvision import transforms
 class MRPGDataSet(torch.utils.data.Dataset):
     def __init__(self, opt):
         self.opt = opt
-        # self.camera_names = ['DroneNN_main']
         self.camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
 
         self.img_transforms = transforms.Compose([
@@ -38,7 +38,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         self.poses = [[] for i in range(self.opt.camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
-            assert(self.opt.camera_num==5)
+            assert (self.opt.camera_num == 5)
             image_dirs = next(os.walk(image_path))[1]
             image_dirs.sort()
             depth_dirs = next(os.walk(depth_path))[1]
@@ -108,7 +108,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             for k, v in consistent_camera_id.items():
                 if len(v) == self.opt.camera_num:
                     for i in range(self.opt.camera_num):
-                        consistent_camera_objects[i].append([v[i][0],v[i][1],v[i][2]])
+                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2]])
             for i in range(len(all_data_path)):
                 torch.save(consistent_camera_objects[i], all_data_path[i])
             del consistent_camera_objects, consistent_camera_id
@@ -150,7 +150,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.stats = torch.load(stats_path)
         else:
             print('[computing image and depth stats]')
-            assert self.opt.camera_num==5
+            assert self.opt.camera_num == 5
             stat_images = [[] for i in range(self.opt.camera_num)]
             stat_depths = [[] for i in range(self.opt.camera_num)]
             for i in range(self.opt.camera_num):
@@ -167,6 +167,9 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
             self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
             torch.save(self.stats, stats_path)
+
+        if self.opt.target == 'generate':
+            self.generated_dataset = [None for i in range(len(self.test_indx) + len(self.train_val_indx))]
 
     def __len__(self):
         return len(self.test_indx) if self.opt.target == 'test' else len(self.train_val_indx)
@@ -189,6 +192,13 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
         # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         return image, pose, depth
+
+    def store_dataframe(self, data, idx):
+        self.generated_dataset[idx] = data
+
+    def store_all(self, path):
+        print(f'[storing feature map]')
+        torch.save(self.generated_dataset, path)
 
     @staticmethod
     def normalise_object(objects, mean, std, name):
