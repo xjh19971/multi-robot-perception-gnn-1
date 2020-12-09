@@ -130,7 +130,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
             if self.opt.target == 'generate':
-                self.generated_indx = self.train_val_indx + self.test_indx
+                self.generated_indx = np.concatenate([self.train_val_indx ,self.test_indx])
         else:
             print('[generating data splits]')
             rgn = numpy.random.RandomState(0)
