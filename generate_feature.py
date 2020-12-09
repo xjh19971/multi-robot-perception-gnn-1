@@ -83,7 +83,7 @@ if __name__ == '__main__':
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
     model_num = re.match(mfile, 'camera_num=%d')
-    store_path = opt.dataset + '/generated_data/' + opt.camera_names[opt.camera_idx[0]] + \
+    store_path = opt.dataset + '/generated_data/' + trainset.camera_names[0] + \
                  f'_all_data_c{opt.camera_num}m{model_num.group(0)}.pth'
 
     model.cuda()

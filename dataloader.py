@@ -2,8 +2,8 @@ import argparse
 import glob
 import math
 import os
-import random
 import pdb
+import random
 
 import cv2
 import numpy
@@ -170,10 +170,16 @@ class MRPGDataSet(torch.utils.data.Dataset):
             torch.save(self.stats, stats_path)
 
         if self.opt.target == 'generate':
-            self.generated_dataset = [None for i in range(len(self.test_indx) + len(self.train_val_indx))]
+            self.generated_dataset = [[None for i in range(len(self.test_indx) + len(self.train_val_indx))] for j in
+                                      range(self.opt.camera_num)]
 
     def __len__(self):
-        return len(self.test_indx) if self.opt.target == 'test' else len(self.train_val_indx)
+        if self.opt.target == 'generate':
+            return len(self.train_val_indx) + len(self.test_indx)
+        elif self.opt.target == 'test':
+            return len(self.test_indx)
+        else:
+            return len(self.train_val_indx)
 
     def __getitem__(self, index):
         if self.opt.target == 'test':
@@ -183,7 +189,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
-        for i in range(self.opt.camera_num if self.opt.target == 'test' else len(self.camera_names)):
+        for i in range(self.opt.camera_num if self.opt.target == 'train' else len(self.camera_names)):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
@@ -196,7 +202,9 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
     def store_dataframe(self, data, idx):
         pdb.set_trace()
-        self.generated_dataset[idx] = data
+        for i in range(self.opt.camera_num):
+            data[0].squeeze(dim=1)
+            self.generated_dataset[i][idx] = data
 
     def store_all(self, path):
         print(f'[storing feature map]')
