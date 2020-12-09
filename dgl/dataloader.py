@@ -165,9 +165,9 @@ class AirsimMapDGLDataset(DGLDataset):
         for i in range(len(all_data_path)):
             data = torch.load(all_data_path[i])
             for j in range(len(data)):
-                self.images[i].append(data[i][0])
-                self.depths[i].append(data[i][1])
-                self.poses[i].append(data[i][2])
+                self.images[i].append(data[j][0])
+                self.depths[i].append(data[j][1])
+                self.poses[i].append(data[j][2])
 
         splits_path = self.save_dir + '/splits.pth'
         if os.path.exists(splits_path):
