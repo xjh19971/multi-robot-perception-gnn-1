@@ -54,7 +54,7 @@ def generate(model, dataloader, dataset, path):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            hidden = model(images, poses)
+            hidden = model(images, poses, extract_feature=False)
             data = [hidden, depths, poses]
             dataset.store_dataframe(data, batch_idx)
     dataset.store_all(path)
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     model_num = re.search("camera_num=\d", "model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1") #
     store_path = opt.dataset + '/generated_data/' + trainset.camera_names[0] + \
-                 f'_all_data_c{opt.camera_num}m{model_num.group(0)[-1]}.pth'
+                 f'_c{opt.camera_num}m{model_num.group(0)[-1]}.pth'
 
     model.cuda()
     print('[generating]')
