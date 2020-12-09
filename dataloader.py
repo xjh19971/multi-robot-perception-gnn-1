@@ -190,7 +190,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             real_index = self.generated_indx[index]
         else:
             real_index = self.train_val_indx[index]
-        pdb.set_trace()
+        # pdb.set_trace()
         image = []
         pose = []
         depth = []
@@ -206,7 +206,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         return image, pose, depth
 
     def store_dataframe(self, data, idx):
-        pdb.set_trace()
+        # pdb.set_trace()
         for i in range(self.opt.camera_num):
             single_data = [data[0][i, :, :, :], data[1][:, i, :, :, :].squeeze(0), data[2][:, i, :].squeeze(0)]
             self.generated_dataset[i][self.generated_indx[idx]] = single_data
