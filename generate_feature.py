@@ -54,7 +54,7 @@ def generate(model, dataloader, dataset, path):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            hidden = model(images, poses, extract_feature=False)
+            hidden = model(images, poses)
             data = [hidden, depths, poses]
             dataset.store_dataframe(data, batch_idx)
     dataset.store_all(path)
@@ -79,7 +79,8 @@ if __name__ == '__main__':
     # load previous checkpoint or create new model
     checkpoint = torch.load(mfile)
     model = checkpoint['model']
-
+    model.extract_feature = True
+    
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
     model_num = re.search("camera_num=\d", "model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1") #
