@@ -11,7 +11,7 @@ from PIL import Image
 from torchvision import transforms
 
 
-from dgl import load_graphs
+from dgl import load_graphs, graph, save_graphs
 from dgl.data import DGLDataset
 from dgl.convert import graph as dgl_graph
 from utils import cal_relative_pose
@@ -43,7 +43,6 @@ class AirsimMapDGLDataset(DGLDataset):
                  force_reload=False,
                  verbose=False):
         self.opt = opt
-        self.cached = False
         self.img_transforms = transforms.Compose([
                                     transforms.Resize((self.opt.image_size, self.opt.image_size)),
                                     transforms.ToTensor(),
@@ -69,10 +68,6 @@ class AirsimMapDGLDataset(DGLDataset):
         pass
 
     def process(self):
-        print(self.cached)
-        if self.cached:
-            self.load()
-            return
         # process raw data to graphs, labels, splitting masks
         print("[Process Dataset]")
         random.seed(self.opt.seed)
@@ -197,6 +192,32 @@ class AirsimMapDGLDataset(DGLDataset):
 
         print(f'[Number of samples for each camera: {self.n_samples}]')
 
+        stats_path = self.save_dir + '/data_stats.pth'
+        if os.path.isfile(stats_path):
+            print(f'[loading data stats: {stats_path}]')
+            self.stats = torch.load(stats_path)
+        else:
+            print('[computing image and depth stats]')
+            assert self.opt.camera_num==5
+            stat_images = [[] for i in range(self.opt.camera_num)]
+            stat_depths = [[] for i in range(self.opt.camera_num)]
+            for i in range(self.opt.camera_num):
+                stat_images[i] = torch.stack(self.images[i], dim=0)
+                stat_depths[i] = torch.stack(self.depths[i], dim=0)
+            stat_images = torch.stack(stat_images, dim=1)
+            stat_depths = torch.stack(stat_depths, dim=1)
+            self.stats = dict()
+            all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
+            all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
+            # Compute mean and std for each channel
+            self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
+            self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
+            self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
+            self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+            torch.save(self.stats, stats_path)
+
+
+
         print(f'[Construct graphs]')
         x= []
         y= []
@@ -209,13 +230,13 @@ class AirsimMapDGLDataset(DGLDataset):
         
         self.graphs = []
         for item in range(self.n_samples):
-            g=dgl.graph(edge_list)
+            g=graph(edge_list)
             image_set = []
             depth_set = []
             edge_set = []
             feature_set = []
             for cam in range(self.opt.camera_num):
-                image_set.append(self.images[cam][item])
+                image_set.append(self.normalise_object(self.images[cam][item], self.stats['images_mean'], self.stats['images_std'],'image'))
                 depth_set.append(self.depths[cam][item])
                 feature_set.append(torch.zeros(8,8,1280))
             g.ndata['image'] = torch.stack(image_set, dim=0)
@@ -229,26 +250,62 @@ class AirsimMapDGLDataset(DGLDataset):
             g.edata['pose'] = torch.stack(edge_set,dim=0)
             self.graphs.append(g)
         
+    @staticmethod
+    def normalise_object(objects, mean, std, name):
+        if name == 'image':
+            dim = 3
+        else:
+            dim = 1
+        objects -= mean.view(dim, 1, 1)
+        objects /= std.view(dim, 1, 1)
+        return objects
 
+    @staticmethod
+    def unormalise_object(objects, mean, std, name, use_cuda=True):
+        if name == 'image':
+            dim = 3
+        else:
+            dim = 1
+        if use_cuda:
+            objects *= mean.view(1, dim, 1, 1).cuda()
+            objects += std.view(1, dim, 1, 1).cuda()
+        else:
+            objects *= mean.view(dim, 1, 1)
+            objects += std.view(dim, 1, 1)
+        return objects
+    @property
+    def images_mean(self):
+        return self.stats['images_mean']
+    @property
+    def images_std(self):
+        return self.stats['images_std']
+    @property
+    def depths_mean(self):
+        return self.stats['depths_mean']
+    @property
+    def depths_std(self):
+        return self.stats['depths_std']
     @property
     def camera_num(self):
         return self.opt.camera_num
 
     def __getitem__(self, idx):
         # get one example by index
-        return self.graphs[idx]
+        if self.opt.target == 'test':
+            real_index = self.test_indx[index]
+        else:
+            real_index = self.train_val_indx[index]
+        return self.graphs[real_index]
 
     def __len__(self):
         # number of data examples
-        return self.n_samples
+        return len(self.test_indx) if self.opt.target == 'test' else len(self.train_val_indx)
 
     def save(self):
-        if self.cached:
-            return
         # save processed data to directory `self.save_path`
         print('[Save graphs]')
         graph_path = os.path.join(self.save_dir, 'dgl_graph_'+str(self.camera_num)+'.bin')
-        dgl.save_graphs(str(graph_path), self.graphs)
+        save_graphs(str(graph_path), self.graphs)
 
     def load(self):
         # load processed data from directory `self.save_path`
@@ -256,13 +313,28 @@ class AirsimMapDGLDataset(DGLDataset):
         graphs, _ = load_graphs(os.path.join(self.save_dir, 'dgl_graph_'+str(self.camera_num)+'.bin'))
         self.graphs = graphs
         
+        splits_path = self.save_dir + '/splits.pth'
+        if os.path.exists(splits_path):
+            print(f'[loading data splits: {splits_path}]')
+            self.splits = torch.load(splits_path)
+            self.n_samples = self.splits.get('n_samples')
+            self.train_val_indx = self.splits.get('train_val_indx')
+            self.test_indx = self.splits.get('test_indx')
+        else:
+            raise NameError('splits.pth not existed')
+
+        stats_path = self.save_dir + '/data_stats.pth'
+        if os.path.isfile(stats_path):
+            print(f'[loading data stats: {stats_path}]')
+            self.stats = torch.load(stats_path)
+        else:
+            raise NameError('stats_path.pth not existed')
+        
     def has_cache(self):
         # check whether there are processed data in `self.save_path`
         graph_path = os.path.join(self.save_dir,'dgl_graph_'+str(self.camera_num)+'.bin')
-        print(graph_path)
         if os.path.exists(graph_path):
             print('[Cached]')
-            self.cached = True
             return True
         else:
             print('[Not Cached]')
