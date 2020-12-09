@@ -53,7 +53,7 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses)
+            pred_depth = model(images, poses, False)
             # test_loss += compute_MSE_loss(depths, pred_depth)
             test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
             batch_num += 1

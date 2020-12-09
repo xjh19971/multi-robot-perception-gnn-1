@@ -36,7 +36,7 @@ def generate(model, dataloader, dataset, path):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            hidden = model(images, poses)
+            hidden = model(images, poses, True)
             data = [hidden, depths, poses]
             dataset.store_dataframe(data, batch_idx)
     dataset.store_all(path)
