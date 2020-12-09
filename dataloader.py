@@ -203,8 +203,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
     def store_dataframe(self, data, idx):
         pdb.set_trace()
         for i in range(self.opt.camera_num):
-            data[0].squeeze(dim=1)
-            self.generated_dataset[i][idx] = data
+            single_data=[data[0][i,:,:,:],data[1][:,i,:,:,:],data[2][:,i,:]]
+            self.generated_dataset[i][idx] = single_data
 
     def store_all(self, path):
         print(f'[storing feature map]')
