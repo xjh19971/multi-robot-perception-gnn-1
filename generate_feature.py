@@ -30,24 +30,6 @@ parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=list, default=5)
 opt = parser.parse_args()
 
-
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
-    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
-    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    SILog = 0
-    for i in range(len(target_depth)):
-        valid_target = target_depth[i] > 0
-        invalid_pred = predicted_depth[i] <= 0
-        num_pixels = torch.sum(valid_target)
-        predicted_depth[i][invalid_pred] = 1e-8
-        distance = torch.log(predicted_depth[i][valid_target]) - torch.log(target_depth[i][valid_target])
-        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(
-            torch.sum(distance)) * lambdad / torch.square(
-            num_pixels)
-    SILog /= target_depth.size(0)
-    return SILog
-
-
 def generate(model, dataloader, dataset, path):
     model.eval()
     with torch.no_grad():
