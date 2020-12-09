@@ -80,7 +80,7 @@ if __name__ == '__main__':
     checkpoint = torch.load(mfile)
     model = checkpoint['model']
     model.extract_feature = True
-    
+
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
     model_num = re.search("camera_num=\d", "model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1") #
