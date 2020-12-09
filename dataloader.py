@@ -190,6 +190,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             real_index = self.generated_indx[index]
         else:
             real_index = self.train_val_indx[index]
+        pdb.set_trace()
         image = []
         pose = []
         depth = []
