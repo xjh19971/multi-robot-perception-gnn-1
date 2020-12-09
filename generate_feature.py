@@ -1,12 +1,12 @@
 import argparse
-import numpy
 import os
+import pdb
 import random
-import time
-import torch
 import re
 
-import utils
+import numpy
+import torch
+
 from dataloader import MRPGDataSet
 
 torch.backends.cudnn.deterministic = True
@@ -30,6 +30,7 @@ parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_num', type=list, default=5)
 opt = parser.parse_args()
 
+
 def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -46,6 +47,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     SILog /= target_depth.size(0)
     return SILog
 
+
 def generate(model, dataloader, dataset, path):
     model.eval()
     with torch.no_grad():
@@ -53,9 +55,10 @@ def generate(model, dataloader, dataset, path):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             hidden = model(images, poses)
-            data = [hidden,depths,poses]
-            dataset.store_dataframe(data,batch_idx)
+            data = [hidden, depths, poses]
+            dataset.store_dataframe(data, batch_idx)
     dataset.store_all(path)
+
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
@@ -79,10 +82,11 @@ if __name__ == '__main__':
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
-    model_num =re.match(mfile,'camera_num=%d')
-    store_path = opt.dataset + '/generated_data/' + opt.camera_names[opt.camera_idx[0]] +\
+    model_num = re.match(mfile, 'camera_num=%d')
+    store_path = opt.dataset + '/generated_data/' + opt.camera_names[opt.camera_idx[0]] + \
                  f'_all_data_c{opt.camera_num}m{model_num.group(0)}.pth'
 
     model.cuda()
     print('[generating]')
-    test_losses = generate(model, trainloader, trainset, store_path)
+    pdb.set_trace()
+    generate(model, trainloader, trainset, store_path)

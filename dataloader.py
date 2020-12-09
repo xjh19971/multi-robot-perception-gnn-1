@@ -3,6 +3,7 @@ import glob
 import math
 import os
 import random
+import pdb
 
 import cv2
 import numpy
@@ -194,6 +195,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         return image, pose, depth
 
     def store_dataframe(self, data, idx):
+        pdb.set_trace()
         self.generated_dataset[idx] = data
 
     def store_all(self, path):
