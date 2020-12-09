@@ -77,7 +77,7 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         optimizer.zero_grad()
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-        pred_depth = model(images, poses)
+        pred_depth = model(images, poses, False)
         # loss = compute_MSE_loss(depths, pred_depth)
         # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5)
         loss = compute_smooth_L1loss(depths, pred_depth)
@@ -102,7 +102,7 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses)
+            pred_depth = model(images, poses, False)
             # test_loss += compute_MSE_loss(depths, pred_depth)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
             test_loss += compute_smooth_L1loss(depths, pred_depth)

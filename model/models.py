@@ -18,7 +18,6 @@ class encoder(nn.Module):
     def forward(self, images):
         images = images.view(-1, 3, self.opt.image_size, self.opt.image_size)
         h = self.image_encoder(images)
-        h = h.view(h.size(0), -1)
         return h
 
 
@@ -42,7 +41,6 @@ class decoder(nn.Module):
         )
 
     def forward(self, h):
-        h = h.view(h.size(0), self.nfeature_image, self.opt.image_size // 32, self.opt.image_size // 32)
         pred_image = self.image_decoder(h)
         pred_image = pred_image.view(-1, self.opt.camera_num, 1, self.opt.image_size, self.opt.image_size)
         return pred_image
@@ -55,7 +53,9 @@ class single_view_model(nn.Module):
         self.encoder = encoder(self.opt)
         self.decoder = decoder(self.opt)
 
-    def forward(self, image, pose):
+    def forward(self, image, pose, extract_feature):
         h = self.encoder(image)
+        if extract_feature:
+            return h
         pred_image = self.decoder(h)
         return pred_image
