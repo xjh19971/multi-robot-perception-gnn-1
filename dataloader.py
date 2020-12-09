@@ -129,6 +129,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.n_samples = self.splits.get('n_samples')
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
+            if self.opt.target == 'generate':
+                self.generated_indx = self.train_val_indx + self.test_indx
         else:
             print('[generating data splits]')
             rgn = numpy.random.RandomState(0)
@@ -175,7 +177,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
     def __len__(self):
         if self.opt.target == 'generate':
-            return len(self.train_val_indx) + len(self.test_indx)
+            return len(self.generated_indx)
         elif self.opt.target == 'test':
             return len(self.test_indx)
         else:
@@ -184,6 +186,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
     def __getitem__(self, index):
         if self.opt.target == 'test':
             real_index = self.test_indx[index]
+        elif self.opt.target == 'generate':
+            real_index = self.generated_indx[index]
         else:
             real_index = self.train_val_indx[index]
         image = []
@@ -204,7 +208,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         pdb.set_trace()
         for i in range(self.opt.camera_num):
             single_data = [data[0][i, :, :, :], data[1][:, i, :, :, :].squeeze(0), data[2][:, i, :].squeeze(0)]
-            self.generated_dataset[i][idx] = single_data
+            self.generated_dataset[i][self.generated_indx[idx]] = single_data
 
     def store_all(self, path):
         print(f'[storing feature map]')
