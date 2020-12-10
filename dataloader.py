@@ -216,7 +216,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
     def store_all(self, path, model_num):
         for i in range(len(self.camera_names)):
-            real_path = path+self.camera_names[i]+f'_all_data_c{opt.camera_num}m{model_num.group(0)[-1]}.pth'
+            real_path = path+self.camera_names[i]+f'_all_data_m{model_num.group(0)[-1]}.pth'
             print(f'[storing feature map at {real_path}]')
             torch.save(self.generated_dataset, real_path)
 
