@@ -1,7 +1,7 @@
 #!/bin/bash
 # Allows named arguments
 set -k
-for model_num im 5 4 3 2 1; do
+for model_num in 5 4 3 2 1; do
 for camera_num in 5 4 3 2 1; do
 	for batch_size in 1; do
 				python -u generate_feature.py \
