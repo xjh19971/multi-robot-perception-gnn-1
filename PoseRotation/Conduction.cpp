@@ -7,10 +7,16 @@
 //
 
 #include "Conduction.hpp"
+#include <iostream>
+#include <string>
+#include <iostream>
+#include <vector>
+#include <Magick++.h>
 
+using namespace std;
 
 //transform matrix from Matrix<3,3> R_BC to double R[3][3]
-void transmatrix1(Matrix<3, 3> R_BC) {
+double transmatrix1(Matrix<3, 3> R_BC) {
     // input: Matrix<3, 3> R_BC, output: double R[3][3]
     double R[3][3];
     
@@ -26,7 +32,7 @@ void transmatrix1(Matrix<3, 3> R_BC) {
     R[2][1] = R_BC(2, 1);
     R[2][2] = R_BC(2, 2);
     
-    //return R[3][3];
+    return R[2][2];
 }
 
 //transform from double R[3][3] to Matrix<3,3> R_BC
@@ -54,6 +60,7 @@ void transmatrix2( double R[3][3] ){
 }
 
 //对接
+/*
 Vector<3> B_r_BC ((Scalar)relpose_T_[i][0],(Scalar)relpose_T_[i][1],(Scalar)relpose_T_[i][2]);
 
 vector<double> camera_1.relpose_T;
@@ -78,4 +85,5 @@ Matrix<3, 3> R_BC_3 = Quaternion((Scalar)relpose_R_[2][0], (Scalar)relpose_R_[2]
 double camera_1.relpose_R = transmatrix1(Matrix<3, 3> R_BC_1);
 double camera_2.relpose_R = transmatrix1(Matrix<3, 3> R_BC_2);
 double camera_3.relpose_R = transmatrix1(Matrix<3, 3> R_BC_3);
+ */
 //以上对接完毕
