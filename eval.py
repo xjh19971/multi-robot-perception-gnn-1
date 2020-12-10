@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
+parser.add_argument('-model_file', type=str, default='model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1')
 parser.add_argument('-target', type=str, default='test')
 parser.add_argument('-batch_size', type=int, default=2)
 parser.add_argument('-lrt', type=float, default=0.01)
@@ -72,8 +73,6 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=opt.batch_size, shuffle=False, num_workers=0)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_num={opt.camera_num}'
-    opt.model_file += f'-seed={opt.seed}'
     print(f'[will load model: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 
