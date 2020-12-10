@@ -66,7 +66,7 @@ if __name__ == '__main__':
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
     model_num = re.search("camera_num=\d", mfile)
-    store_path = '/media/data/dataset/airsim-map/airsim-mrmps-process/'
+    store_path = './generated_data/'
 
     model.cuda()
     print('[generating]')

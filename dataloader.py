@@ -218,7 +218,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         for i in range(len(self.camera_names)):
             real_path = path+self.camera_names[i]+f'_all_data_m{model_num.group(0)[-1]}.pth'
             print(f'[storing feature map at {real_path}]')
-            torch.save(self.generated_dataset, real_path)
+            torch.save(self.generated_dataset[i], real_path)
 
     @staticmethod
     def normalise_object(objects, mean, std, name):
