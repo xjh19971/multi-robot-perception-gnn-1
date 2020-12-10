@@ -2,7 +2,6 @@ import argparse
 import glob
 import math
 import os
-import pdb
 import random
 
 import cv2
@@ -31,7 +30,11 @@ class MRPGDataSet(torch.utils.data.Dataset):
         depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
-        for i in range(self.opt.camera_num):
+        if self.opt.target == 'test':
+            real_camera_num = len(self.camera_names)
+        else:
+            real_camera_num = self.opt.camera_num
+        for i in range(real_camera_num):
             all_data_path.append(self.opt.dataset + '/' + self.camera_names[i] + '_all_data.pth')
 
         self.images = [[] for i in range(self.opt.camera_num)]
@@ -130,7 +133,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
             if self.opt.target == 'generate':
-                self.generated_indx = np.concatenate([self.train_val_indx ,self.test_indx])
+                self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
             print('[generating data splits]')
             rgn = numpy.random.RandomState(0)
@@ -235,8 +238,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
             objects *= mean.view(1, 1, dim, 1, 1).cuda()
             objects += std.view(1, 1, dim, 1, 1).cuda()
         else:
-            objects *= mean.view(1, dim, 1, 1)
-            objects += std.view(1, dim, 1, 1)
+            objects *= mean.view(dim, 1, 1)
+            objects += std.view(dim, 1, 1)
         return objects
 
 
