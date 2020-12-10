@@ -215,7 +215,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.generated_dataset[i][self.generated_indx[idx]] = single_data
 
     def store_all(self, path):
-        print(f'[storing feature map]')
+        print(f'[storing feature map at {path}]')
         torch.save(self.generated_dataset, path)
 
     @staticmethod
