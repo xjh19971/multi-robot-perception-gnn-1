@@ -77,7 +77,7 @@ if __name__ == '__main__':
     mfile = opt.model_file + '.model'
 
     # load previous checkpoint or create new model
-    checkpoint = torch.load(mfile)
+    checkpoint = torch.load('trained_models/'+mfile)
     model = checkpoint['model']
     model = model.module
 
