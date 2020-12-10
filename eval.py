@@ -82,6 +82,7 @@ if __name__ == '__main__':
     model = checkpoint['model']
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
+    model.opt.camera_num = 5
     model.cuda()
     print('[testing]')
     t0 = time.time()
