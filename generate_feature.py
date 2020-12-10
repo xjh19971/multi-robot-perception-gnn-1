@@ -27,7 +27,7 @@ parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
-parser.add_argument('-camera_num', type=list, default=5)
+parser.add_argument('-camera_num', type=int, default=5)
 opt = parser.parse_args()
 
 def generate(model, dataloader, dataset, path):
