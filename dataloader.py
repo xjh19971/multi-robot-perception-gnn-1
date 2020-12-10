@@ -31,15 +31,15 @@ class MRPGDataSet(torch.utils.data.Dataset):
         pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         all_data_path = []
         if self.opt.target == 'test':
-            real_camera_num = len(self.camera_names)
+            self.real_camera_num = len(self.camera_names)
         else:
-            real_camera_num = self.opt.camera_num
-        for i in range(real_camera_num):
+            self.real_camera_num = self.opt.camera_num
+        for i in range(self.real_camera_num):
             all_data_path.append(self.opt.dataset + '/' + self.camera_names[i] + '_all_data.pth')
 
-        self.images = [[] for i in range(real_camera_num)]
-        self.depths = [[] for i in range(real_camera_num)]
-        self.poses = [[] for i in range(real_camera_num)]
+        self.images = [[] for i in range(self.real_camera_num)]
+        self.depths = [[] for i in range(self.real_camera_num)]
+        self.poses = [[] for i in range(self.real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
@@ -197,7 +197,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
-        for i in range(len(self.camera_names) if self.opt.target == 'test' else self.opt.camera_num):
+        for i in range(self.real_camera_num):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
