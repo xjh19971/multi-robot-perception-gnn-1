@@ -37,9 +37,9 @@ class MRPGDataSet(torch.utils.data.Dataset):
         for i in range(real_camera_num):
             all_data_path.append(self.opt.dataset + '/' + self.camera_names[i] + '_all_data.pth')
 
-        self.images = [[] for i in range(self.opt.camera_num)]
-        self.depths = [[] for i in range(self.opt.camera_num)]
-        self.poses = [[] for i in range(self.opt.camera_num)]
+        self.images = [[] for i in range(real_camera_num)]
+        self.depths = [[] for i in range(real_camera_num)]
+        self.poses = [[] for i in range(real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
