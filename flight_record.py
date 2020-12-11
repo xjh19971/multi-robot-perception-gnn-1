@@ -2,11 +2,24 @@ import rospy
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import Pose
 from cv_bridge import CvBridge, CvBridgeError
-
+import os
 import cv2
 num_camera = 5
 camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
-save_dir = '/media/data/dataset/flightmare'
+save_dir = '/media/data/dataset/flightmare-test'
+modality = ['scene','depth','pose']
+if not os.path.exists(save_dir):
+    os.mkdir(save_dir)
+for j in range(len(modality)):
+    print(save_dir+'/'+modality[j])
+    if not os.path.exists((save_dir+'/'+modality[j])):
+        os.mkdir(save_dir+'/'+modality[j])
+        
+for i in range(num_camera):
+    for j in range(len(modality)):
+        if not os.path.exists(save_dir+'/'+modality[j]+'/'+camera_names[i]):
+            os.mkdir(save_dir+'/'+modality[j]+'/'+camera_names[i])
+
 bridge = CvBridge()
 frame = 0
 
