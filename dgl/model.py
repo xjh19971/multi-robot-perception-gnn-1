@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import models
+from torchvision import models
 from blocks import TransBlock
 
 from dgl.nn.pytorch import GraphConv
