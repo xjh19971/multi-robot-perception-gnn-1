@@ -124,7 +124,7 @@ void FlightPilot::mainLoopCallback(const ros::TimerEvent &event) {
       rgb_cameras_[i]->getRGBImage(image);
       pub_RGBImages_[i].publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg());
       rgb_cameras_[i]->getDepthMap(image);
-      pub_DepthMaps_[i].publish(cv_bridge::CvImage(std_msgs::Header(), "bgr8", image).toImageMsg());
+      pub_DepthMaps_[i].publish(cv_bridge::CvImage(std_msgs::Header(), "32FC1", image).toImageMsg());
     }
 }
 
