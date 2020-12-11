@@ -31,7 +31,7 @@ def depth_callback(msg):
     #print("Recieved a depth image!")
     try:
         # Convert your ROS Image message to OpenCV2
-        depth = bridge.imgmsg_to_cv2(msg, "mono8")
+        depth = bridge.imgmsg_to_cv2(msg, "32FC1")
     except CvBridgeError,e:
         print(e)
     #else:
