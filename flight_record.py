@@ -16,7 +16,7 @@ p=Pose()
 rate_value=100
 def image_callback(msg):
     global rgb
-    print("Received a RGB image!")
+    #print("Received a RGB image!")
     try:
         # Convert your ROS Image message to OpenCV2
         rgb = bridge.imgmsg_to_cv2(msg, "bgr8")
@@ -28,7 +28,7 @@ def image_callback(msg):
         
 def depth_callback(msg):
     global depth
-    print("Recieved a depth image!")
+    #print("Recieved a depth image!")
     try:
         # Convert your ROS Image message to OpenCV2
         depth = bridge.imgmsg_to_cv2(msg, "mono8")
@@ -40,10 +40,10 @@ def depth_callback(msg):
 
 def pose_callback(msg):
     global p
-    print("Received a pose")
-    p.orientation.x = msg.position.x
-    p.orientation.y = msg.position.y
-    p.orientation.z = msg.position.z
+    #print("Received a pose")
+    p.position.x = msg.position.x
+    p.position.y = msg.position.y
+    p.position.z = msg.position.z
     p.orientation.x = msg.orientation.x
     p.orientation.y = msg.orientation.y
     p.orientation.z = msg.orientation.z
@@ -51,7 +51,9 @@ def pose_callback(msg):
 
 def save_msg(timestamp, frame):
     global rgb,depth,p
+    print('[save msg]')
     for i in range(num_camera):
+        key = raw_input("camera "+str(i))
         rgb_path = save_dir + "/scene/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".png"
         cv2.imwrite(rgb_path, rgb)
         depth_path = save_dir + "/depth/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".png"
@@ -61,7 +63,7 @@ def save_msg(timestamp, frame):
         L = [str(timestamp)+'\n',str(p.position.x)+'\n', str(p.position.y)+'\n', str(p.position.z)+'\n', str(p.orientation.x)+'\n', str(p.orientation.y)+'\n', str(p.orientation.z)+'\n', str(p.orientation.w)+'\n']
         file.writelines(L)
         file.close()
-        print(pose_path)
+        #print(pose_path)
 
     
 def main():
@@ -80,12 +82,12 @@ def main():
     #rate.sleep()
     #for i in range(1000):
     #    rate.sleep()
+    frame = int(raw_input('Input Starting frame: (default = 0)'))
     while not rospy.is_shutdown():
         #cv2.imwrite('camera_image.jpeg', rgb)
         #cv2.imwrite('depth_image.jpeg', depth)
         key = raw_input('next?')
         timestamp = rospy.Time.now()
-
         save_msg(timestamp,frame)
         frame+=1
         
