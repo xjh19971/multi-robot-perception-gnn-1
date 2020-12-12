@@ -35,7 +35,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
-        valid_target = target_depth[i] > 0
+        valid_target = target_depth[i] < 100.0
         invalid_pred = predicted_depth[i] <= 0
         num_pixels = torch.sum(valid_target)
         predicted_depth[i][invalid_pred] = 1e-8

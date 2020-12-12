@@ -32,7 +32,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
         else:
             image_path = self.opt.dataset + '/scene/'
-            depth_path = self.opt.dataset + '/depth/'
+            depth_path = self.opt.dataset + '/depth_encoded/'
             pose_path = self.opt.dataset + '/pose/'
         all_data_path = []
         if self.opt.target == 'test':
@@ -79,18 +79,22 @@ class MRPGDataSet(torch.utils.data.Dataset):
                         files_path = depth_path + dir_data + '/' + self.camera_names[i]
                     else:
                         files_path = depth_path + self.camera_names[i]
-                    file_names = glob.glob(f'{files_path}/*.png')
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        file_names = glob.glob(f'{files_path}/*.png')
+                    else:
+                        file_names = glob.glob(f'{files_path}/*.npy')
                     file_names.sort()
                     for file_name in file_names:
                         if file_name[-10:-4] in camera_objects:
-                            depth = Image.open(f'{file_name}')
                             if self.opt.dataset == 'airsim-mrmps-data':
+                                depth = cv2.imread(f'{file_name}')
                                 depth = np.array(
-                                    depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (256 ** 1),
+                                    depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (
+                                                256 ** 1),
                                     dtype=np.uint32)
                                 depth = depth.view(np.float32)
                             else:
-                                depth = np.array(depth)
+                                depth = np.load(f'{file_name}')
                             depth = cv2.resize(depth, (self.opt.image_size, self.opt.image_size),
                                                interpolation=cv2.INTER_CUBIC)
                             depth = torch.tensor(depth).view(1, self.opt.image_size, self.opt.image_size)
