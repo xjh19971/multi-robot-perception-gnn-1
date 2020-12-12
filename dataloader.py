@@ -26,9 +26,14 @@ class MRPGDataSet(torch.utils.data.Dataset):
         torch.manual_seed(opt.seed)
         torch.cuda.manual_seed(opt.seed)
 
-        image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
-        depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
-        pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
+        if self.opt.dataset == 'airsim-mrmps-data':
+            image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
+            depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
+            pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
+        else:
+            image_path = self.opt.dataset + '/scene/'
+            depth_path = self.opt.dataset + '/depth/'
+            pose_path = self.opt.dataset + '/pose/'
         all_data_path = []
         if self.opt.target == 'test':
             self.real_camera_num = len(self.camera_names)
@@ -43,17 +48,24 @@ class MRPGDataSet(torch.utils.data.Dataset):
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
-            image_dirs = next(os.walk(image_path))[1]
-            image_dirs.sort()
-            depth_dirs = next(os.walk(depth_path))[1]
-            depth_dirs.sort()
-            pose_dirs = next(os.walk(pose_path))[1]
-            pose_dirs.sort()
-
+            if self.opt.dataset == 'airsim-mrmps-data':
+                image_dirs = next(os.walk(image_path))[1]
+                image_dirs.sort()
+                depth_dirs = next(os.walk(depth_path))[1]
+                depth_dirs.sort()
+                pose_dirs = next(os.walk(pose_path))[1]
+                pose_dirs.sort()
+            else:
+                image_dirs = ['']
+                depth_dirs = ['']
+                pose_dirs = ['']
             for i in range(self.opt.camera_num):
                 camera_objects = {}
                 for dir_data in image_dirs:
-                    files_path = image_path + dir_data + '/' + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = image_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = image_path + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.png')
                     file_names.sort()
                     for file_name in file_names:
@@ -63,22 +75,31 @@ class MRPGDataSet(torch.utils.data.Dataset):
                             image = image[0:3, :, :]
                         camera_objects[file_name[-10:-4]] = [file_name[-10:-4], image]
                 for dir_data in depth_dirs:
-                    files_path = depth_path + dir_data + '/' + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = depth_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = depth_path + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.png')
                     file_names.sort()
                     for file_name in file_names:
                         if file_name[-10:-4] in camera_objects:
-                            depth = cv2.imread(f'{file_name}')
-                            depth = np.array(
-                                depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (256 ** 1),
-                                dtype=np.uint32)
-                            depth = depth.view(np.float32)
+                            depth = Image.open(f'{file_name}')
+                            if self.opt.dataset == 'airsim-mrmps-data':
+                                depth = np.array(
+                                    depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (256 ** 1),
+                                    dtype=np.uint32)
+                                depth = depth.view(np.float32)
+                            else:
+                                depth = np.array(depth)
                             depth = cv2.resize(depth, (self.opt.image_size, self.opt.image_size),
                                                interpolation=cv2.INTER_CUBIC)
                             depth = torch.tensor(depth).view(1, self.opt.image_size, self.opt.image_size)
                             camera_objects[file_name[-10:-4]].append(depth)
                 for dir_data in pose_dirs:
-                    files_path = pose_path + dir_data + '/' + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = pose_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = pose_path + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.txt')
                     file_names.sort()
                     for file_name in file_names:

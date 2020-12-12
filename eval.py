@@ -79,7 +79,6 @@ if __name__ == '__main__':
     # load previous checkpoint or create new model
     checkpoint = torch.load('trained_models/'+mfile)
     model = checkpoint['model']
-    model = model.module
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
     model.opt.camera_num = 5

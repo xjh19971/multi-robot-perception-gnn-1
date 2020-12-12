@@ -26,9 +26,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
 parser.add_argument('-target', type=str, default='train')
-parser.add_argument('-batch_size', type=int, default=2)
+parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
-parser.add_argument('-lrt', type=float, default=0.0001)
+parser.add_argument('-lrt', type=float, default=0.005)
 parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
         scheduler.step(val_losses[0])
         n_iter += 1
         model.cpu()
-        torch.save({'model': model,
+        torch.save({'model': model.module if opt.multi_gpu else model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
                     'scheduler': scheduler.state_dict()}, opt.model_file + '.model')
