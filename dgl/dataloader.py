@@ -17,7 +17,7 @@ from dgl.convert import graph as dgl_graph
 from utils import cal_relative_pose
 
 class AirsimMapDGLDataset(DGLDataset):
-    """ 
+    """
     Parameters
     ----------
     url : str
@@ -52,7 +52,7 @@ class AirsimMapDGLDataset(DGLDataset):
                                         raw_dir=raw_dir,
                                         save_dir=save_dir,
                                         force_reload=force_reload,
-                                        verbose=verbose,                                
+                                        verbose=verbose,
                                         )
 
 
@@ -61,8 +61,8 @@ class AirsimMapDGLDataset(DGLDataset):
         return ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
     @property
     def camera_num(self):
-        return 
-        
+        return
+
     def download(self):
         # download raw data to local disk
         pass
@@ -80,7 +80,7 @@ class AirsimMapDGLDataset(DGLDataset):
         all_data_path = []
         for i in range(self.opt.camera_num):
             all_data_path.append(self.save_dir + '/' + self.camera_names[i] + '_all_data.pth')
-        
+
         self.images = [[] for i in range(self.opt.camera_num)]
         self.depths = [[] for i in range(self.opt.camera_num)]
         self.poses = [[] for i in range(self.opt.camera_num)]
@@ -169,7 +169,7 @@ class AirsimMapDGLDataset(DGLDataset):
                 self.depths[i].append(data[j][1])
                 self.poses[i].append(data[j][2])
 
-        splits_path = self.save_dir + '/splits.pth'
+        splits_path = self.save_dir + '/splits-'+str(self.camera_num)+'.pth'
         if os.path.exists(splits_path):
             print(f'[loading data splits: {splits_path}]')
             self.splits = torch.load(splits_path)
@@ -192,13 +192,12 @@ class AirsimMapDGLDataset(DGLDataset):
 
         print(f'[Number of samples for each camera: {self.n_samples}]')
 
-        stats_path = self.save_dir + '/data_stats.pth'
+        stats_path = self.save_dir + '/data_stats-'+str(self.camera_num)+'.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
             print('[computing image and depth stats]')
-            assert self.opt.camera_num==5
             stat_images = [[] for i in range(self.opt.camera_num)]
             stat_depths = [[] for i in range(self.opt.camera_num)]
             for i in range(self.opt.camera_num):
@@ -227,7 +226,7 @@ class AirsimMapDGLDataset(DGLDataset):
                     x.append(i)
                     y.append(j)
         edge_list = (x,y)
-        
+
         self.graphs = []
         for item in range(self.n_samples):
             g=graph(edge_list)
@@ -241,7 +240,7 @@ class AirsimMapDGLDataset(DGLDataset):
                 feature_set.append(torch.zeros(8,8,1280))
             g.ndata['image'] = torch.stack(image_set, dim=0)
             g.ndata['depth'] = torch.stack(depth_set, dim=0)
-            g.ndata['feature'] = torch.stack(feature_set, dim=0)
+            #g.ndata['feature'] = torch.stack(feature_set, dim=0)
             for i in range(self.opt.camera_num):
                 for j in range(self.opt.camera_num):
                     if not (i==j):
@@ -249,7 +248,7 @@ class AirsimMapDGLDataset(DGLDataset):
                         edge_set.append(torch.from_numpy(relative_pose))
             g.edata['pose'] = torch.stack(edge_set,dim=0)
             self.graphs.append(g)
-        
+
     @staticmethod
     def normalise_object(objects, mean, std, name):
         if name == 'image':
@@ -312,8 +311,8 @@ class AirsimMapDGLDataset(DGLDataset):
         print('[Load existed graph]')
         graphs, _ = load_graphs(os.path.join(self.save_dir, 'dgl_graph_'+str(self.camera_num)+'.bin'))
         self.graphs = graphs
-        
-        splits_path = self.save_dir + '/splits.pth'
+
+        splits_path = self.save_dir + '/splits-'+str(self.camera_num)+'.pth'
         if os.path.exists(splits_path):
             print(f'[loading data splits: {splits_path}]')
             self.splits = torch.load(splits_path)
@@ -323,13 +322,13 @@ class AirsimMapDGLDataset(DGLDataset):
         else:
             raise NameError('splits.pth not existed')
 
-        stats_path = self.save_dir + '/data_stats.pth'
+        stats_path = self.save_dir + '/data_stats-'+str(self.camera_num)+'.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
             raise NameError('stats_path.pth not existed')
-        
+
     def has_cache(self):
         # check whether there are processed data in `self.save_path`
         graph_path = os.path.join(self.save_dir,'dgl_graph_'+str(self.camera_num)+'.bin')
@@ -339,4 +338,4 @@ class AirsimMapDGLDataset(DGLDataset):
         else:
             print('[Not Cached]')
             return False
-        
+

@@ -1,0 +1,20 @@
+scene_id: 0
+main_loop_freq: 50.0
+unity_render: yes 
+
+fov: 90
+width: 720
+height: 480
+num_camera: 3
+camera_names: ["camera_1", "camera_2", "camera_3"]
+camera_1:
+  relpose_T: [0.0, 0.0, 0.3]
+  relpose_R: [1.0, 0.0, 0.0, 0.0]
+
+camera_2: 
+  relpose_T: [-3.0, 0.0, 0.1]
+  relpose_R: [0.924, 0.0, 0.0, 0.383]
+
+camera_3:
+  relpose_T: [3.0, 0.0, 0.1]
+  relpose_R: [0.924, 0.0, 0.0,-0.383]
