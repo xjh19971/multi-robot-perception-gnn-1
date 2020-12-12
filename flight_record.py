@@ -4,17 +4,19 @@ from geometry_msgs.msg import Pose
 from cv_bridge import CvBridge, CvBridgeError
 import os
 import cv2
+import numpy as np
+from PIL import Image as Im
 num_camera = 5
 camera_names = ['DroneNN_main', 'DroneNP_main', 'DronePN_main', 'DronePP_main', 'DroneZZ_main']
-save_dir = '/media/data/dataset/flightmare-test'
-modality = ['scene','depth','pose']
+save_dir = '/media/data/dataset/flightmare-npy'
+modality = ['scene','depth','depth_encoded','pose']
 if not os.path.exists(save_dir):
     os.mkdir(save_dir)
 for j in range(len(modality)):
     print(save_dir+'/'+modality[j])
     if not os.path.exists((save_dir+'/'+modality[j])):
         os.mkdir(save_dir+'/'+modality[j])
-        
+
 for i in range(num_camera):
     for j in range(len(modality)):
         if not os.path.exists(save_dir+'/'+modality[j]+'/'+camera_names[i]):
@@ -36,19 +38,20 @@ def image_callback(msg):
     except CvBridgeError,e:
         print(e)
     #else:
-        # Save your OpenCV2 image as a jpeg 
+        # Save your OpenCV2 image as a jpeg
         #cv2.imwrite('camera_image.jpeg', rgb)
-        
+
 def depth_callback(msg):
     global depth
     #print("Recieved a depth image!")
     try:
         # Convert your ROS Image message to OpenCV2
         depth = bridge.imgmsg_to_cv2(msg, "32FC1")
+        #print(np.max(depth), ' ', np.min(depth))
     except CvBridgeError,e:
         print(e)
     #else:
-    #    # Save your OpenCV2 image as a jpeg 
+    #    # Save your OpenCV2 image as a jpeg
     #    cv2.imwrite('depth_image.jpeg', depth)
 
 def pose_callback(msg):
@@ -70,6 +73,11 @@ def save_msg(timestamp, frame):
         rgb_path = save_dir + "/scene/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".png"
         cv2.imwrite(rgb_path, rgb)
         depth_path = save_dir + "/depth/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".png"
+        depth_encoded_path = save_dir + "/depth_encoded/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".npy"
+        #new_im =Im.fromarray(depth)
+        #new_im.save(depth_path_spi,format="SPIDER")
+        with open(depth_encoded_path, 'wb') as f:
+            np.save(f, depth)
         cv2.imwrite(depth_path, depth)
         pose_path = save_dir + "/pose/" + camera_names[i] + "/pose" + str(frame).zfill(6)+".txt"
         file = open(pose_path, "w+")
@@ -78,7 +86,7 @@ def save_msg(timestamp, frame):
         file.close()
         #print(pose_path)
 
-    
+
 def main():
     global frame
     rospy.init_node('image_listener')
@@ -103,7 +111,7 @@ def main():
         timestamp = rospy.Time.now()
         save_msg(timestamp,frame)
         frame+=1
-        
+
 
 if __name__ == '__main__':
     main()
