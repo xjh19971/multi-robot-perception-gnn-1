@@ -2,7 +2,6 @@ import argparse
 import glob
 import math
 import os
-import pdb
 import random
 
 import cv2
@@ -27,30 +26,46 @@ class MRPGDataSet(torch.utils.data.Dataset):
         torch.manual_seed(opt.seed)
         torch.cuda.manual_seed(opt.seed)
 
-        image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
-        depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
-        pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
+        if self.opt.dataset == 'airsim-mrmps-data':
+            image_path = self.opt.dataset + '/scene/async_rotate_fog_000_clear/'
+            depth_path = self.opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
+            pose_path = self.opt.dataset + '/pose/async_rotate_fog_000_clear/'
+        else:
+            image_path = self.opt.dataset + '/scene/'
+            depth_path = self.opt.dataset + '/depth_encoded/'
+            pose_path = self.opt.dataset + '/pose/'
         all_data_path = []
-        for i in range(self.opt.camera_num):
+        if self.opt.target == 'test':
+            self.real_camera_num = len(self.camera_names)
+        else:
+            self.real_camera_num = self.opt.camera_num
+        for i in range(self.real_camera_num):
             all_data_path.append(self.opt.dataset + '/' + self.camera_names[i] + '_all_data.pth')
 
-        self.images = [[] for i in range(self.opt.camera_num)]
-        self.depths = [[] for i in range(self.opt.camera_num)]
-        self.poses = [[] for i in range(self.opt.camera_num)]
+        self.images = [[] for i in range(self.real_camera_num)]
+        self.depths = [[] for i in range(self.real_camera_num)]
+        self.poses = [[] for i in range(self.real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
-            image_dirs = next(os.walk(image_path))[1]
-            image_dirs.sort()
-            depth_dirs = next(os.walk(depth_path))[1]
-            depth_dirs.sort()
-            pose_dirs = next(os.walk(pose_path))[1]
-            pose_dirs.sort()
-
+            if self.opt.dataset == 'airsim-mrmps-data':
+                image_dirs = next(os.walk(image_path))[1]
+                image_dirs.sort()
+                depth_dirs = next(os.walk(depth_path))[1]
+                depth_dirs.sort()
+                pose_dirs = next(os.walk(pose_path))[1]
+                pose_dirs.sort()
+            else:
+                image_dirs = ['']
+                depth_dirs = ['']
+                pose_dirs = ['']
             for i in range(self.opt.camera_num):
                 camera_objects = {}
                 for dir_data in image_dirs:
-                    files_path = image_path + dir_data + '/' + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = image_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = image_path + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.png')
                     file_names.sort()
                     for file_name in file_names:
@@ -60,22 +75,35 @@ class MRPGDataSet(torch.utils.data.Dataset):
                             image = image[0:3, :, :]
                         camera_objects[file_name[-10:-4]] = [file_name[-10:-4], image]
                 for dir_data in depth_dirs:
-                    files_path = depth_path + dir_data + '/' + self.camera_names[i]
-                    file_names = glob.glob(f'{files_path}/*.png')
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = depth_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = depth_path + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        file_names = glob.glob(f'{files_path}/*.png')
+                    else:
+                        file_names = glob.glob(f'{files_path}/*.npy')
                     file_names.sort()
                     for file_name in file_names:
                         if file_name[-10:-4] in camera_objects:
-                            depth = cv2.imread(f'{file_name}')
-                            depth = np.array(
-                                depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (256 ** 1),
-                                dtype=np.uint32)
-                            depth = depth.view(np.float32)
+                            if self.opt.dataset == 'airsim-mrmps-data':
+                                depth = cv2.imread(f'{file_name}')
+                                depth = np.array(
+                                    depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (
+                                                256 ** 1),
+                                    dtype=np.uint32)
+                                depth = depth.view(np.float32)
+                            else:
+                                depth = np.load(f'{file_name}')
                             depth = cv2.resize(depth, (self.opt.image_size, self.opt.image_size),
                                                interpolation=cv2.INTER_CUBIC)
                             depth = torch.tensor(depth).view(1, self.opt.image_size, self.opt.image_size)
                             camera_objects[file_name[-10:-4]].append(depth)
                 for dir_data in pose_dirs:
-                    files_path = pose_path + dir_data + '/' + self.camera_names[i]
+                    if self.opt.dataset == 'airsim-mrmps-data':
+                        files_path = pose_path + dir_data + '/' + self.camera_names[i]
+                    else:
+                        files_path = pose_path + self.camera_names[i]
                     file_names = glob.glob(f'{files_path}/*.txt')
                     file_names.sort()
                     for file_name in file_names:
@@ -130,7 +158,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
             if self.opt.target == 'generate':
-                self.generated_indx = np.concatenate([self.train_val_indx ,self.test_indx])
+                self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
             print('[generating data splits]')
             rgn = numpy.random.RandomState(0)
@@ -194,7 +222,7 @@ class MRPGDataSet(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
-        for i in range(len(self.camera_names) if self.opt.target == 'test' else self.opt.camera_num):
+        for i in range(self.real_camera_num):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
@@ -211,9 +239,11 @@ class MRPGDataSet(torch.utils.data.Dataset):
             single_data = [data[0][i, :, :, :], data[1][:, i, :, :, :].squeeze(0), data[2][:, i, :].squeeze(0)]
             self.generated_dataset[i][self.generated_indx[idx]] = single_data
 
-    def store_all(self, path):
-        print(f'[storing feature map]')
-        torch.save(self.generated_dataset, path)
+    def store_all(self, path, model_num):
+        for i in range(len(self.camera_names)):
+            real_path = path+self.camera_names[i]+f'_all_data_m{model_num.group(0)[-1]}.pth'
+            print(f'[storing feature map at {real_path}]')
+            torch.save(self.generated_dataset[i], real_path)
 
     @staticmethod
     def normalise_object(objects, mean, std, name):
@@ -235,8 +265,8 @@ class MRPGDataSet(torch.utils.data.Dataset):
             objects *= mean.view(1, 1, dim, 1, 1).cuda()
             objects += std.view(1, 1, dim, 1, 1).cuda()
         else:
-            objects *= mean.view(1, dim, 1, 1)
-            objects += std.view(1, dim, 1, 1)
+            objects *= mean.view(dim, 1, 1)
+            objects += std.view(dim, 1, 1)
         return objects
 
 
