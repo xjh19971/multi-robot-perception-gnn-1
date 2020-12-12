@@ -37,9 +37,6 @@ def image_callback(msg):
         rgb = bridge.imgmsg_to_cv2(msg, "bgr8")
     except CvBridgeError,e:
         print(e)
-    #else:
-        # Save your OpenCV2 image as a jpeg
-        #cv2.imwrite('camera_image.jpeg', rgb)
 
 def depth_callback(msg):
     global depth
@@ -50,9 +47,6 @@ def depth_callback(msg):
         #print(np.max(depth), ' ', np.min(depth))
     except CvBridgeError,e:
         print(e)
-    #else:
-    #    # Save your OpenCV2 image as a jpeg
-    #    cv2.imwrite('depth_image.jpeg', depth)
 
 def pose_callback(msg):
     global p
@@ -74,8 +68,6 @@ def save_msg(timestamp, frame):
         cv2.imwrite(rgb_path, rgb)
         depth_path = save_dir + "/depth/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".png"
         depth_encoded_path = save_dir + "/depth_encoded/" + camera_names[i] + "/frame" + str(frame).zfill(6)+".npy"
-        #new_im =Im.fromarray(depth)
-        #new_im.save(depth_path_spi,format="SPIDER")
         with open(depth_encoded_path, 'wb') as f:
             np.save(f, depth)
         cv2.imwrite(depth_path, depth)
@@ -84,7 +76,6 @@ def save_msg(timestamp, frame):
         L = [str(timestamp)+'\n',str(p.position.x)+'\n', str(p.position.y)+'\n', str(p.position.z)+'\n', str(p.orientation.x)+'\n', str(p.orientation.y)+'\n', str(p.orientation.z)+'\n', str(p.orientation.w)+'\n']
         file.writelines(L)
         file.close()
-        #print(pose_path)
 
 
 def main():
@@ -97,16 +88,9 @@ def main():
     rospy.Subscriber(image_topic, Image, image_callback)
     rospy.Subscriber(depth_topic, Image, depth_callback)
     rospy.Subscriber(pose_topic, Pose, pose_callback)
-    # Spin until ctrl + c
-    #rospy.spin()
     rate = rospy.Rate(rate_value)
-    #rate.sleep()
-    #for i in range(1000):
-    #    rate.sleep()
     frame = int(raw_input('Input Starting frame: (default = 0)'))
     while not rospy.is_shutdown():
-        #cv2.imwrite('camera_image.jpeg', rgb)
-        #cv2.imwrite('depth_image.jpeg', depth)
         key = raw_input('next?')
         timestamp = rospy.Time.now()
         save_msg(timestamp,frame)
