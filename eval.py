@@ -19,6 +19,7 @@ parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
+parser.add_argument('-model_file', type=str, default='model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1')
 parser.add_argument('-target', type=str, default='test')
 parser.add_argument('-batch_size', type=int, default=2)
 parser.add_argument('-lrt', type=float, default=0.01)
@@ -34,7 +35,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
-        valid_target = target_depth[i] > 0
+        valid_target = target_depth[i] < 100.0
         invalid_pred = predicted_depth[i] <= 0
         num_pixels = torch.sum(valid_target)
         predicted_depth[i][invalid_pred] = 1e-8
@@ -72,16 +73,15 @@ if __name__ == '__main__':
     testloader = torch.utils.data.DataLoader(testset, batch_size=opt.batch_size, shuffle=False, num_workers=0)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_num={opt.camera_num}'
-    opt.model_file += f'-seed={opt.seed}'
     print(f'[will load model: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 
     # load previous checkpoint or create new model
-    checkpoint = torch.load(mfile)
+    checkpoint = torch.load('trained_models/'+mfile)
     model = checkpoint['model']
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
+    model.opt.camera_num = 5
     model.cuda()
     print('[testing]')
     t0 = time.time()

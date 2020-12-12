@@ -27,10 +27,10 @@ parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
-parser.add_argument('-camera_num', type=list, default=5)
+parser.add_argument('-camera_num', type=int, default=5)
 opt = parser.parse_args()
 
-def generate(model, dataloader, dataset, path):
+def generate(model, dataloader, dataset, path, model_num):
     model.eval()
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
@@ -39,7 +39,7 @@ def generate(model, dataloader, dataset, path):
             hidden = model(images, poses, True)
             data = [hidden, depths, poses]
             dataset.store_dataframe(data, batch_idx)
-    dataset.store_all(path)
+    dataset.store_all(path, model_num)
 
 
 if __name__ == '__main__':
@@ -65,11 +65,10 @@ if __name__ == '__main__':
 
     stats = torch.load(opt.dataset + '/data_stats.pth')
 
-    model_num = re.search("camera_num=\d", "model=single_view-bsize=4-lrt=0.01-camera_num=5-seed=1") #
-    store_path = opt.dataset + '/generated_data/' + trainset.camera_names[0] + \
-                 f'_c{opt.camera_num}m{model_num.group(0)[-1]}.pth'
+    model_num = re.search("camera_num=\d", mfile)
+    store_path = './generated_data/'
 
     model.cuda()
     print('[generating]')
     # pdb.set_trace()
-    generate(model, trainloader, trainset, store_path)
+    generate(model, trainloader, trainset, store_path, model_num)
