@@ -21,7 +21,7 @@ torch.backends.cudnn.benchmark = True
 #################################################
 # Train an action-conditional forward model
 #################################################
-
+dgl_models = ["multi_view_dgl"]
 parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
@@ -158,7 +158,6 @@ def test_dgl(model, dataloader, stats, opt):
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
-
     random.seed(opt.seed)
     numpy.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
@@ -185,7 +184,7 @@ if __name__ == '__main__':
     trainset, valset = torch.utils.data.random_split(dataset,
                                                      [int(0.90 * len(dataset)),
                                                       len(dataset) - int(0.90 * len(dataset))])
-    if opt.model == "multi_view_dgl":
+    if opt.model in dgl_models:
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.batch_size,collate_fn=_collate_fn)
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size,collate_fn=_collate_fn)
     else:
@@ -223,7 +222,7 @@ if __name__ == '__main__':
         n_iter = 0
     if opt.model in ["single_view", "multi_view"]:
         stats = torch.load(opt.dataset + '/data_stats.pth')
-    elif opt.model == "multi_view_dgl" :
+    elif opt.model in dgl_models:
         stats = torch.load(dataset.save_dir + '/data_stats-'+str(opt.camera_num)+'.pth')
     if opt.multi_gpu:
         model = torch.nn.DataParallel(model, device_ids=[0, 1])
@@ -235,13 +234,13 @@ if __name__ == '__main__':
         t0 = time.time()
         if opt.model == "single_view":
             train_losses = train(model, trainloader, optimizer, epoch, dataset.stats)
-        elif opt.model == "multi_view_dgl":
+        elif opt.model in dgl_models:
             train_losses = train_dgl(model, trainloader, optimizer, epoch, dataset.stats, opt)
         t1 = time.time()
         print("Time per epoch= %d s" % (t1 - t0))
         if opt.model == "single_view":
             val_losses = test(model, valloader, dataset.stats)
-        elif opt.model == "multi_view_dgl":
+        elif opt.model in dgl_models:
             val_losses = test_dgl(model, valloader, dataset.stats, opt)
         scheduler.step(val_losses[0])
         n_iter += 1
