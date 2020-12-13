@@ -24,11 +24,11 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
-parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
+parser.add_argument('-dataset', type=str, default='flightmare')
 parser.add_argument('-target', type=str, default='train')
-parser.add_argument('-batch_size', type=int, default=2)
+parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
-parser.add_argument('-lrt', type=float, default=0.0001)
+parser.add_argument('-lrt', type=float, default=0.005)
 parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
@@ -39,17 +39,13 @@ parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
 opt = parser.parse_args()
 
-
-def compute_MSE_loss(target_depth, predicted_depth, reduction='mean'):
-    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
-    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    loss = F.mse_loss(predicted_depth, target_depth, reduction=reduction)
-    return loss
-
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    loss = F.smooth_l1_loss(predicted_depth, target_depth, reduction=reduction)
+    valid_target = target_depth < 100.0
+    invalid_pred = predicted_depth <= 0
+    predicted_depth[invalid_pred] = 1e-8
+    loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
 def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
@@ -57,7 +53,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
-        valid_target = target_depth[i] > 0
+        valid_target = target_depth[i] < 100.0
         invalid_pred = predicted_depth[i] <= 0
         num_pixels = torch.sum(valid_target)
         predicted_depth[i][invalid_pred] = 1e-8
@@ -78,7 +74,6 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses, False)
-        # loss = compute_MSE_loss(depths, pred_depth)
         # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5)
         loss = compute_smooth_L1loss(depths, pred_depth)
         train_loss += loss
@@ -103,7 +98,6 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            # test_loss += compute_MSE_loss(depths, pred_depth)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
             test_loss += compute_smooth_L1loss(depths, pred_depth)
             batch_num += 1
@@ -162,7 +156,7 @@ if __name__ == '__main__':
         scheduler.step(val_losses[0])
         n_iter += 1
         model.cpu()
-        torch.save({'model': model,
+        torch.save({'model': model.module if opt.multi_gpu else model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
                     'scheduler': scheduler.state_dict()}, opt.model_file + '.model')
