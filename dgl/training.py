@@ -11,7 +11,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 import utils
-from dataloader import AirsimMapDGLDataset, MRPGDataSet
+from dataloader import MultiViewDGLDataset, SingleViewDataset
 from model import models, blocks
 from dgl import batch
 
@@ -25,7 +25,7 @@ torch.backends.cudnn.benchmark = True
 parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
-parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
+parser.add_argument('-dataset', type=str, default='airsim')
 parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
@@ -43,25 +43,27 @@ opt = parser.parse_args()
 def _collate_fn(graph):
     return batch(graph)
 
-
-def compute_MSE_loss(target_depth, predicted_depth, reduction='mean'):
+def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    loss = F.mse_loss(predicted_depth, target_depth, reduction=reduction)
+    if dataset == 'airsim-mrmps-data':
+        valid_target = target_depth > 0
+    else:
+        valid_target = target_depth < 100.0
+    invalid_pred = predicted_depth <= 0
+    predicted_depth[invalid_pred] = 1e-8
+    loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
-def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean'):
-    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
-    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    loss = F.smooth_l1_loss(predicted_depth, target_depth, reduction=reduction)
-    return loss
-
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0):
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
-        valid_target = target_depth[i] > 0
+        if dataset == 'airsim-mrmps-data':
+            valid_target = target_depth > 0
+        else:
+            valid_target = target_depth < 100.0
         invalid_pred = predicted_depth[i] <= 0
         num_pixels = torch.sum(valid_target)
         predicted_depth[i][invalid_pred] = 1e-8
@@ -82,9 +84,8 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses, False)
-        # loss = compute_MSE_loss(depths, pred_depth)
-        # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5)
-        loss = compute_smooth_L1loss(depths, pred_depth)
+        # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
+        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
@@ -107,9 +108,8 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            # test_loss += compute_MSE_loss(depths, pred_depth)
-            # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0)
-            test_loss += compute_smooth_L1loss(depths, pred_depth)
+            # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
+            test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -125,7 +125,8 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
         data = data.to('cuda:0')
         pred_depth = model(data)
         depths = data.ndata['depth']        
-        loss = compute_smooth_L1loss(depths, pred_depth)
+        depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward()
@@ -149,7 +150,8 @@ def test_dgl(model, dataloader, stats, opt):
             data=data.to('cuda:0')
             pred_depth = model(data)
             depths = data.ndata['depth']
-            test_loss += compute_smooth_L1loss(depths, pred_depth)
+            depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -163,12 +165,21 @@ if __name__ == '__main__':
     torch.cuda.manual_seed(opt.seed)
     if opt.dataset=="airsim":
         opt.dataset = "airsim-mrmps-data"
-        print(f'[Loading MRPGDataset]')
-        dataset = MRPGDataSet(opt)
+        print(f'[Loading airsim SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
-        print(f'[Loading AirsimMapDGLDataset]')
-        dataset = AirsimMapDGLDataset(opt)
+        print(f'[Loading airsim MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="flightmare":
+        opt.dataset = "flightmare"
+        print(f'[Loading flightmare SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="flightmare-dgl":
+        opt.dataset = "flightmare"
+        print(f'[Loading flightmare MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
 
     trainset, valset = torch.utils.data.random_split(dataset,
