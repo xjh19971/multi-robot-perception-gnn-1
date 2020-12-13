@@ -85,7 +85,7 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses, False)
         # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
-        loss = compute_smooth_L1loss(depths, pred_depth, opt.dataset)
+        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
@@ -109,7 +109,7 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
             # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
-            loss = compute_smooth_L1loss(depths, pred_depth, opt.dataset)
+            loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
