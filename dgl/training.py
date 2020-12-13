@@ -125,7 +125,6 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
         data = data.to('cuda:0')
         pred_depth = model(data)
         depths = data.ndata['depth']        
-        depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
         loss = compute_smooth_L1loss(depths, pred_depth)
         train_loss += loss
         if not math.isnan(loss.item()):
@@ -150,7 +149,6 @@ def test_dgl(model, dataloader, stats, opt):
             data=data.to('cuda:0')
             pred_depth = model(data)
             depths = data.ndata['depth']
-            depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             test_loss += compute_smooth_L1loss(depths, pred_depth)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
