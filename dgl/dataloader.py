@@ -49,12 +49,12 @@ class MultiViewDGLDataset(DGLDataset):
                                 ])
 
         if self.opt.dataset == 'airsim-mrmps-data':
-            self.name = 'AirsimDGL'
+            pname = 'AirsimDGL'
         else:
-            self.name = 'FlightmareDGL'
-        print(f"[Initialize {self.name}]")
+            pname = 'FlightmareDGL'
+        print(f"[Initialize {pname}]")
         print("save_dir: ", save_dir)
-        super(DGLDataset, self).__init__(name=self.name,
+        super(MultiViewDGLDataset, self).__init__(name=pname,
                                         url=url,
                                         raw_dir=raw_dir,
                                         save_dir=save_dir,
