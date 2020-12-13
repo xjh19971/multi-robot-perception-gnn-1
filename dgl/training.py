@@ -25,7 +25,7 @@ torch.backends.cudnn.benchmark = True
 parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
-parser.add_argument('-dataset', type=str, default='airsim-mrmps-data')
+parser.add_argument('-dataset', type=str, default='airsim')
 parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
@@ -166,7 +166,7 @@ if __name__ == '__main__':
     if opt.dataset=="airsim":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim SingleViewDataset]')
-        dataset = SingleViewDataSet(opt)
+        dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim MultiViewDGLDataset]')
