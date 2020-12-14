@@ -83,7 +83,7 @@ class multi_view_model(nn.Module):
         pred_image = self.decoder(h)
         return pred_image
 
-## multi_view_dgl_film
+## multi_view_dgl_mean_wofilm
 # Film edge -> gamma and beta channel-wise
 # m_ij = gamma * F_i + beta
 # F' = [F_i; mean (m_ij)]
@@ -138,8 +138,11 @@ class GCN(nn.Module):
 
     def forward(self,g):
         with g.local_scope():
-            g.edata['pose_gamma'], g.edata['pose_beta'] = self.edge_encoder(g.edata['pose'])
-            g.update_all(edge_udf,node_udf)
+            # multi_view_dgl_mean
+            #g.edata['pose_gamma'], g.edata['pose_beta'] = self.edge_encoder(g.edata['pose'])
+            #g.update_all(edge_udf,node_udf)
+            # multi_view_dgl_mean_wofilm
+            g.update_all(fn.copy_u('image','m'),node_udf)
             return g.ndata['images']
             
 
