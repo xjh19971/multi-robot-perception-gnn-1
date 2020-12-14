@@ -240,7 +240,7 @@ if __name__ == '__main__':
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir+'/'+mfile):
         print(f'[loading previous checkpoint: {mfile}]')
-        checkpoint = torch.load(mfile)
+        checkpoint = torch.load(opt.model_dir+'/'+mfile)
         model = checkpoint['model']
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
