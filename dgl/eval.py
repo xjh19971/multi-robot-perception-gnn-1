@@ -104,7 +104,7 @@ def test(model, dataloader, stats):
             abs_rel+=abs_rel_single
             sq_rel+=sq_rel_single
             rmse+=rmse_single
-            rmse_log+=rmse_log
+            rmse_log+=rmse_log_single
             batch_num += 1
     avg_abs_loss = abs_rel / batch_num
     avg_sq_loss = sq_rel / batch_num
