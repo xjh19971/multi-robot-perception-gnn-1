@@ -1,4 +1,6 @@
       
+
+## multi_view_dgl_film
 # Film edge -> gamma and beta channel-wise
 # m_ij = gamma * F_i + beta
 # F' = [F_i; mean (m_ij)]
@@ -40,13 +42,9 @@ class multi_view_dgl_model(nn.Module):
             return pred_image
 
 def node_udf(nodes):
-    #print('message size: ', nodes.mailbox['m'].sum(1).size())
-    #print('feature size: ', torch.cat((nodes.data['image'],nodes.mailbox['m'].sum(1)),dim=1).size())
     return {'images':nodes.mailbox['m'].mean(1)}
-    #return fn.mean('m', 'images')
 
 def edge_udf(edges):
-    #print((edges.data['pose_gamma']*edges.src['image'] + edges.data['pose_beta']).size())
     return {'m': edges.data['pose_gamma']*edges.src['image'] + edges.data['pose_beta']}
 
 class GCN(nn.Module):
@@ -57,12 +55,12 @@ class GCN(nn.Module):
 
     def forward(self,g):
         with g.local_scope():
-            #g.edata['gamma'], g.edata['beta'] = self.edge_encoder(g.edata['pose'])
             g.edata['pose_gamma'], g.edata['pose_beta'] = self.edge_encoder(g.edata['pose'])
-            #print('encoded edge size: ', g.edata['pose_gamma'].size())
-            #g.srcdata.update({'out_src': g.ndata['image']*g.e})
             g.update_all(edge_udf,node_udf)
             return g.ndata['images']
+            
+
+
             
 
 
