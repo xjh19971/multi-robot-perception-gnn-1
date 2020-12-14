@@ -295,4 +295,4 @@ if __name__ == '__main__':
         log_string += utils.format_losses(*train_losses, split='train')
         log_string += utils.format_losses(*val_losses, split='valid')
         print(log_string)
-        utils.log(opt.model_file + '.log', log_string)
+        utils.log(opt.model_dir+'/'+opt.model_file + '.log', log_string)
