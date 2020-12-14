@@ -131,7 +131,6 @@ def test_dgl(model, dataloader, stats, opt):
                 print((depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1)).shape)
                 cv2.imwrite('vis/depth/'+str(batch_num)+'.png', depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1))
                 cv2.imwrite('vis/depth_gt/'+str(batch_num)+'.png', pred_depth[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1 ))
-                cnt += 1
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
