@@ -4,6 +4,7 @@ import os
 import random
 import time
 
+import cv2
 import numpy
 import torch
 import torch.nn as nn
@@ -32,11 +33,24 @@ parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-apply_noise_idx', type=list, default=None)
 parser.add_argument('-model_file', type=str)
+parser.add_argument('-visualization', action="store_true")
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 
 def _collate_fn(graph):
     return batch(graph)
+
+def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
+    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
+    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
+    if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
+        valid_target = target_depth > 0
+    else:
+        valid_target = target_depth < 100.0
+    invalid_pred = predicted_depth <= 0
+    predicted_depth[invalid_pred] = 1e-8
+    loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
+    return loss
 
 def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -66,7 +80,8 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
+            #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -75,6 +90,7 @@ def test_dgl(model, dataloader, stats, opt):
     model.eval()
     test_loss = 0
     batch_num = 0
+    cnt = 0
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
             model.eval()
@@ -82,7 +98,13 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+            if opt.visualization:
+                print((depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1)).shape)
+                cv2.imwrite('vis/depth/'+str(cnt)+'.png', depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1))
+                cv2.imwrite('vis/depth_gt/'+str(cnt)+'.png', pred_depth[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1 ))
+                cnt += 1
+            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
+            #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]

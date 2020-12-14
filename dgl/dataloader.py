@@ -374,11 +374,11 @@ class MultiViewDGLDataset(DGLDataset):
             self.test_indx = self.splits.get('test_indx')
         else:
             raise NameError('splits.pth not existed')
-
-        stats_path = self.save_dir + '/data_stats-'+str(self.camera_idx)+'.pth'
+        stats_path = self.save_dir + '/data_stats-'+str(self.camera_num)+'.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
+            print(f'[Finish loading data stats]')
         else:
             raise NameError('stats_path.pth not existed')
 
