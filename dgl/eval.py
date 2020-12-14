@@ -4,6 +4,7 @@ import os
 import random
 import time
 
+import cv2
 import numpy
 import torch
 import torch.nn as nn
@@ -31,7 +32,8 @@ parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-apply_noise_idx', type=list, default=None)
-parser.add_argument('-model_file', type=str, default=None)
+parser.add_argument('-model_file', type=str)
+parser.add_argument('-visualization', action="store_true")
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 
@@ -115,6 +117,7 @@ def test(model, dataloader, stats):
 
 def test_dgl(model, dataloader, stats, opt):
     model.eval()
+    abs_rel, sq_rel, rmse, rmse_log = 0,0,0,0
     test_loss = 0
     batch_num = 0
     with torch.no_grad():
@@ -124,10 +127,28 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-            test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
+            if opt.visualization:
+                print((depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1)).shape)
+                cv2.imwrite('vis/depth/'+str(batch_num)+'.png', depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1))
+                cv2.imwrite('vis/depth_gt/'+str(batch_num)+'.png', pred_depth[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1 ))
+                cnt += 1
+            #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
+            #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
-    avg_test_loss = test_loss / batch_num
-    return [avg_test_loss]
+            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depth,dataset=opt.dataset)
+            abs_rel+=abs_rel_single
+            sq_rel+=sq_rel_single
+            rmse+=rmse_single
+            rmse_log+=rmse_log_single
+            batch_num += 1
+    avg_abs_loss = abs_rel / batch_num
+    avg_sq_loss = sq_rel / batch_num
+    avg_rmse_loss = rmse / batch_num
+    avg_rmse_log_loss = rmse_log / batch_num
+
+    return [avg_abs_loss,avg_sq_loss,avg_rmse_loss,avg_rmse_log_loss]
+    # avg_test_loss = test_loss / batch_num
+    # return [avg_test_loss]
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
