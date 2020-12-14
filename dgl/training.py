@@ -238,7 +238,7 @@ if __name__ == '__main__':
     mfile = opt.model_file + '.model'
 
     # load previous checkpoint or create new model
-    if os.path.isfile(mfile):
+    if os.path.isfile(opt.model_dir+'/'+mfile):
         print(f'[loading previous checkpoint: {mfile}]')
         checkpoint = torch.load(mfile)
         model = checkpoint['model']
