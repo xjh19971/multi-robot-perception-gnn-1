@@ -14,7 +14,7 @@ import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
 from model import models, blocks
 from dgl import batch
-
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
@@ -34,19 +34,20 @@ parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
-parser.add_argument('-camera_num', type=int, default=5)
+parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
+parser.add_argument('-apply_noise_idx', type=list, default=None)
 opt = parser.parse_args()
-
+opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    if dataset == 'airsim-mrmps-data':
+    if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
         valid_target = target_depth > 0
     else:
         valid_target = target_depth < 100.0
@@ -60,7 +61,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='air
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
     for i in range(len(target_depth)):
-        if dataset == 'airsim-mrmps-data':
+        if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
             valid_target = target_depth > 0
         else:
             valid_target = target_depth < 100.0
@@ -162,22 +163,60 @@ if __name__ == '__main__':
     numpy.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
     torch.cuda.manual_seed(opt.seed)
+
     if opt.dataset=="airsim":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim SingleViewDataset]')
         dataset = SingleViewDataset(opt)
+    elif opt.dataset=="airsim-noise":
+        opt.dataset = "airsim-mrmps-noise-data"
+        print(f'[Loading airsim noise MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
-    elif opt.dataset=="flightmare":
-        opt.dataset = "flightmare"
-        print(f'[Loading flightmare SingleViewDataset]')
+    elif opt.dataset=="airsim-noise-dgl":
+        opt.dataset = "airsim-mrmps-noise-data"
+        print(f'[Loading airsim noise MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="cargo":
+        opt.dataset = "cargo"
+        print(f'[Loading cargo SingleViewDataset]')
         dataset = SingleViewDataset(opt)
-    elif opt.dataset=="flightmare-dgl":
-        opt.dataset = "flightmare"
-        print(f'[Loading flightmare MultiViewDGLDataset]')
+    elif opt.dataset=="cargo-noise":
+        opt.dataset = "cargo-noise"
+        print(f'[Loading cargo noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="cargo-dgl":
+        opt.dataset = "cargo"
+        print(f'[Loading cargo MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="cargo-noise-dgl":
+        opt.dataset = "cargo-noise"
+        print(f'[Loading cargo noise MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="industrial":
+        opt.dataset = "industrial"
+        print(f'[Loading industrial SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="industrial-noise":
+        opt.dataset = "industrial-noise"
+        print(f'[Loading industrial noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="industrial-dgl":
+        opt.dataset = "industrial"
+        print(f'[Loading industrial MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="industrial-noise-dgl":
+        opt.dataset = "industrial-noise"
+        print(f'[Loading industrial noise MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
 
@@ -192,7 +231,7 @@ if __name__ == '__main__':
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_num={opt.camera_num}'
+    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
     opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
@@ -220,10 +259,10 @@ if __name__ == '__main__':
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         n_iter = 0
-    if opt.model in ["single_view", "multi_view"]:
-        stats = torch.load(opt.dataset + '/data_stats.pth')
-    elif opt.model in dgl_models:
-        stats = torch.load(dataset.save_dir + '/data_stats-'+str(opt.camera_num)+'.pth')
+    # if opt.model in ["single_view", "multi_view"]:
+    #     stats = torch.load(opt.dataset + '/data_stats.pth')
+    # elif opt.model in dgl_models:
+    #     stats = torch.load(dataset.save_dir + '/data_stats-'+str(opt.camera_idx)+'.pth')
     if opt.multi_gpu:
         model = torch.nn.DataParallel(model, device_ids=[0, 1])
     model.cuda()
