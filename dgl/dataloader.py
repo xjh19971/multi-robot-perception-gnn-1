@@ -15,7 +15,7 @@ from dgl import load_graphs, graph, save_graphs
 from dgl.data import DGLDataset
 from dgl.convert import graph as dgl_graph
 from utils import cal_relative_pose
-from utils import AddPepperNoise
+
 class MultiViewDGLDataset(DGLDataset):
     """
     Parameters
@@ -49,7 +49,7 @@ class MultiViewDGLDataset(DGLDataset):
                                 ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 2.0)),
+            transforms.GaussianBlur(kernel_size=15),
             transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
             transforms.ToTensor(),
         ])
@@ -223,25 +223,19 @@ class MultiViewDGLDataset(DGLDataset):
             self.n_samples = self.splits.get('n_samples')
             self.train_val_indx = self.splits.get('train_val_indx')
             self.test_indx = self.splits.get('test_indx')
-            if self.opt.target == 'generate':
-                self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
-            if self.opt.apply_noise_idx is not None:
-                print('splits.pth not found! splits for noise_data should be copied from data.')
-                raise KeyError
-            else:
-                print('[generating data splits]')
-                rgn = numpy.random.RandomState(0)
-                self.n_samples = len(self.images[0])
-                perm = rgn.permutation(self.n_samples)
-                n_train_val = int(math.floor(self.n_samples * 0.9))
-                self.train_val_indx = perm[0: n_train_val]
-                self.test_indx = perm[n_train_val:]
-                torch.save(dict(
-                    n_samples=self.n_samples,
-                    train_val_indx=self.train_val_indx,
-                    test_indx=self.test_indx,
-                ), splits_path)
+            print('[generating data splits]')
+            rgn = numpy.random.RandomState(0)
+            self.n_samples = len(self.images[0])
+            perm = rgn.permutation(self.n_samples)
+            n_train_val = int(math.floor(self.n_samples * 0.9))
+            self.train_val_indx = perm[0: n_train_val]
+            self.test_indx = perm[n_train_val:]
+            torch.save(dict(
+                n_samples=self.n_samples,
+                train_val_indx=self.train_val_indx,
+                test_indx=self.test_indx,
+            ), splits_path)
 
         print(f'[Number of samples for each camera: {self.n_samples}]')
 
@@ -250,7 +244,7 @@ class MultiViewDGLDataset(DGLDataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-             if self.opt.apply_noise_idx is not None:
+             if self.opt.apply_noise is not None:
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
@@ -409,8 +403,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 5.0)),
-            AddPepperNoise(0.9, p=1.0),
+            transforms.GaussianBlur(kernel_size=15),
             transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
             transforms.ToTensor(),
         ])
@@ -556,7 +549,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             if self.opt.target == 'generate':
                 self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
-            if self.opt.apply_noise_idx is not None:
+            if self.opt.apply_noise is not None:
                 print('splits.pth not found! splits for noise_data should be copied from data.')
                 raise KeyError
             else:
@@ -580,7 +573,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-             if self.opt.apply_noise_idx is not None:
+             if self.opt.apply_noise is not None:
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
