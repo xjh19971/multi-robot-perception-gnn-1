@@ -38,6 +38,18 @@ opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
+def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
+    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
+    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
+    if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
+        valid_target = target_depth > 0
+    else:
+        valid_target = target_depth < 100.0
+    invalid_pred = predicted_depth <= 0
+    predicted_depth[invalid_pred] = 1e-8
+    loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
+    return loss
+
 def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -66,7 +78,9 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+            test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+            # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
