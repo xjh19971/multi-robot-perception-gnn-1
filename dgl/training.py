@@ -39,6 +39,7 @@ parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=list, default=None)
+parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
@@ -231,8 +232,8 @@ if __name__ == '__main__':
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
-    opt.model_file += f'-seed={opt.seed}'
+    #opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
+    #opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 

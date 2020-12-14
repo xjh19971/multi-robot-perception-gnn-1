@@ -31,7 +31,7 @@ parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-apply_noise_idx', type=list, default=None)
-parser.add_argument('-model_file', type=str)
+parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 
@@ -80,7 +80,6 @@ def test(model, dataloader, stats):
             pred_depth = model(images, poses, False)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
-
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
