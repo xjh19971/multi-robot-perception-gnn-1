@@ -493,6 +493,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                                         noise_operation = jpeg_compression
                                 else:
                                     severity = 0
+                                image=image.convert('RGB')
                                 image = transforms.Resize((self.opt.image_size, self.opt.image_size))(image)
                                 if noise_operation is not None:
                                     image = noise_operation(image, severity)
@@ -591,7 +592,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             if self.opt.target == 'generate':
                 self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
-            if self.opt.apply_noise is not None:
+            if self.opt.apply_noise_idx is not None:
                 print('splits.pth not found! splits for noise_data should be copied from data.')
                 raise KeyError
             else:
@@ -615,7 +616,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-             if self.opt.apply_noise is not None:
+             if self.opt.apply_noise_idx is not None:
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
