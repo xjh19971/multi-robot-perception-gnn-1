@@ -57,7 +57,7 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=1.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
@@ -86,7 +86,6 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses, False)
-        # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
@@ -110,7 +109,6 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
