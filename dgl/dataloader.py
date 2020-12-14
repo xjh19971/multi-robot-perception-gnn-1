@@ -49,7 +49,7 @@ class MultiViewDGLDataset(DGLDataset):
                                 ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=9),
+            transforms.GaussianBlur(kernel_size=5),
             transforms.ColorJitter(brightness=0.4,contrast=0.4,saturation=0.4,hue=0.2),
             transforms.ToTensor(),
         ])
@@ -244,24 +244,28 @@ class MultiViewDGLDataset(DGLDataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-            print('[computing image and depth stats]')
-            assert self.opt.camera_num == 5
-            stat_images = [[] for i in range(self.opt.camera_num)]
-            stat_depths = [[] for i in range(self.opt.camera_num)]
-            for i in range(self.opt.camera_num):
-                stat_images[i] = torch.stack(self.images[i], dim=0)
-                stat_depths[i] = torch.stack(self.depths[i], dim=0)
-            stat_images = torch.stack(stat_images, dim=1)
-            stat_depths = torch.stack(stat_depths, dim=1)
-            self.stats = dict()
-            all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
-            all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
-            # Compute mean and std for each channel
-            self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
-            self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
-            self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
-            self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
-            torch.save(self.stats, stats_path)
+             if self.opt.apply_noise is not None:
+                print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
+                raise KeyError
+             else:
+                print('[computing image and depth stats]')
+                assert self.opt.camera_num == 5
+                stat_images = [[] for i in range(self.opt.camera_num)]
+                stat_depths = [[] for i in range(self.opt.camera_num)]
+                for i in range(self.opt.camera_num):
+                    stat_images[i] = torch.stack(self.images[i], dim=0)
+                    stat_depths[i] = torch.stack(self.depths[i], dim=0)
+                stat_images = torch.stack(stat_images, dim=1)
+                stat_depths = torch.stack(stat_depths, dim=1)
+                self.stats = dict()
+                all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
+                all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
+                # Compute mean and std for each channel
+                self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
+                self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
+                self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
+                self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+                torch.save(self.stats, stats_path)
 
 
 
@@ -545,18 +549,22 @@ class SingleViewDataset(torch.utils.data.Dataset):
             if self.opt.target == 'generate':
                 self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
-            print('[generating data splits]')
-            rgn = numpy.random.RandomState(0)
-            self.n_samples = len(self.images[0])
-            perm = rgn.permutation(self.n_samples)
-            n_train_val = int(math.floor(self.n_samples * 0.9))
-            self.train_val_indx = perm[0: n_train_val]
-            self.test_indx = perm[n_train_val:]
-            torch.save(dict(
-                n_samples=self.n_samples,
-                train_val_indx=self.train_val_indx,
-                test_indx=self.test_indx,
-            ), splits_path)
+            if self.opt.apply_noise is not None:
+                print('splits.pth not found! splits for noise_data should be copied from data.')
+                raise KeyError
+            else:
+                print('[generating data splits]')
+                rgn = numpy.random.RandomState(0)
+                self.n_samples = len(self.images[0])
+                perm = rgn.permutation(self.n_samples)
+                n_train_val = int(math.floor(self.n_samples * 0.9))
+                self.train_val_indx = perm[0: n_train_val]
+                self.test_indx = perm[n_train_val:]
+                torch.save(dict(
+                    n_samples=self.n_samples,
+                    train_val_indx=self.train_val_indx,
+                    test_indx=self.test_indx,
+                ), splits_path)
 
         print(f'[Number of samples for each camera: {self.n_samples}]')
 
@@ -565,24 +573,28 @@ class SingleViewDataset(torch.utils.data.Dataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-            print('[computing image and depth stats]')
-            assert self.opt.camera_num == 5
-            stat_images = [[] for i in range(self.opt.camera_num)]
-            stat_depths = [[] for i in range(self.opt.camera_num)]
-            for i in range(self.opt.camera_num):
-                stat_images[i] = torch.stack(self.images[i], dim=0)
-                stat_depths[i] = torch.stack(self.depths[i], dim=0)
-            stat_images = torch.stack(stat_images, dim=1)
-            stat_depths = torch.stack(stat_depths, dim=1)
-            self.stats = dict()
-            all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
-            all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
-            # Compute mean and std for each channel
-            self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
-            self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
-            self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
-            self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
-            torch.save(self.stats, stats_path)
+             if self.opt.apply_noise is not None:
+                print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
+                raise KeyError
+             else:
+                print('[computing image and depth stats]')
+                assert self.opt.camera_num == 5
+                stat_images = [[] for i in range(self.opt.camera_num)]
+                stat_depths = [[] for i in range(self.opt.camera_num)]
+                for i in range(self.opt.camera_num):
+                    stat_images[i] = torch.stack(self.images[i], dim=0)
+                    stat_depths[i] = torch.stack(self.depths[i], dim=0)
+                stat_images = torch.stack(stat_images, dim=1)
+                stat_depths = torch.stack(stat_depths, dim=1)
+                self.stats = dict()
+                all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
+                all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
+                # Compute mean and std for each channel
+                self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
+                self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
+                self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
+                self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+                torch.save(self.stats, stats_path)
 
         if self.opt.target == 'generate':
             self.generated_dataset = [[None for i in range(len(self.test_indx) + len(self.train_val_indx))] for j in
