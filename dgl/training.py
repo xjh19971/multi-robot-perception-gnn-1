@@ -33,13 +33,16 @@ parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
-parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
+parser.add_argument('-camera_idx', type=str, default="01234")
 parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
-parser.add_argument('-apply_noise_idx', type=list, default=None)
+parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
+opt.camera_idx = list(map(int,list(opt.camera_idx)))
+if opt.apply_noise_idx is not None:
+    opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
 opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
@@ -168,8 +171,8 @@ if __name__ == '__main__':
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-noise":
         opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        print(f'[Loading airsim noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
         print(dataset[0])
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
@@ -285,7 +288,7 @@ if __name__ == '__main__':
         torch.save({'model': model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
-                    'scheduler': scheduler.state_dict()}, opt.model_file + '.model')
+                    'scheduler': scheduler.state_dict()}, opt.model_dir+'/'+mfile)
         model.cuda()
         log_string = f'step {n_iter} | '
         log_string += utils.format_losses(*train_losses, split='train')
