@@ -102,6 +102,7 @@ class MultiViewDGLDataset(DGLDataset):
         self.images = [[] for i in range(self.real_camera_num)]
         self.depths = [[] for i in range(self.real_camera_num)]
         self.poses = [[] for i in range(self.real_camera_num)]
+        self.severities = [[] for i in range(self.real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
@@ -134,21 +135,22 @@ class MultiViewDGLDataset(DGLDataset):
                             if self.opt.apply_noise_idx is not None and i in self.opt.apply_noise_idx:
                                 noise = random.random()
                                 if noise > 0.2:
-                                    severity=random.randint(1,5)
-                                    if noise>0.2 and noise<=0.3:
-                                        noise_operation=gaussian_noise
-                                    elif noise>0.3 and noise<=0.4:
+                                    severity = random.randint(1, 5)
+                                    if noise > 0.2 and noise <= 0.3:
+                                        noise_operation = gaussian_noise
+                                    elif noise > 0.3 and noise <= 0.4:
                                         noise_operation = shot_noise
-                                    elif noise>0.4 and noise<=0.5:
+                                    elif noise > 0.4 and noise <= 0.5:
                                         noise_operation = impulse_noise
-                                    elif noise>0.5 and noise<=0.7:
+                                    elif noise > 0.5 and noise <= 0.7:
                                         noise_operation = motion_blur
-                                    elif noise>0.7 and noise<=0.9:
+                                    elif noise > 0.7 and noise <= 0.9:
                                         noise_operation = snow
                                     else:
                                         noise_operation = jpeg_compression
                                 else:
                                     severity = 0
+                                image = image.convert('RGB')
                                 image = transforms.Resize((self.opt.image_size, self.opt.image_size))(image)
                                 if noise_operation is not None:
                                     image = noise_operation(image, severity)
@@ -174,7 +176,7 @@ class MultiViewDGLDataset(DGLDataset):
                                 depth = cv2.imread(f'{file_name}')
                                 depth = np.array(
                                     depth[:, :, 0] * (256 ** 3) + depth[:, :, 1] * (256 ** 2) + depth[:, :, 2] * (
-                                                256 ** 1),
+                                            256 ** 1),
                                     dtype=np.uint32)
                                 depth = depth.view(np.float32)
                             else:
@@ -200,7 +202,7 @@ class MultiViewDGLDataset(DGLDataset):
 
                 consistent_objects = []
                 for k, v in severity_dict.items():
-                    consistent_objects[k].append(v)
+                    camera_objects[k].append(v)
                 for k, v in camera_objects.items():
                     if len(v) == 5:
                         consistent_objects.append(v)
@@ -217,13 +219,13 @@ class MultiViewDGLDataset(DGLDataset):
                 data = torch.load(all_data_path[i])
                 for j in range(len(data)):
                     if not data[j][0] in consistent_camera_id:
-                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3]]]
+                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3], data[j][4]]]
                     else:
-                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
+                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3], data[j][4]])
             for k, v in consistent_camera_id.items():
                 if len(v) == self.opt.camera_num:
                     for i in range(self.opt.camera_num):
-                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2]])
+                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2], v[i][3]])
             for i in range(len(all_data_path)):
                 torch.save(consistent_camera_objects[i], all_data_path[i])
             del consistent_camera_objects, consistent_camera_id
@@ -235,6 +237,7 @@ class MultiViewDGLDataset(DGLDataset):
                 self.images[i].append(data[j][0])
                 self.depths[i].append(data[j][1])
                 self.poses[i].append(data[j][2])
+                self.severities[i].append(data[j][3])
 
         splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
