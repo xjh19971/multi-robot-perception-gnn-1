@@ -31,14 +31,26 @@ parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-apply_noise_idx', type=list, default=None)
-parser.add_argument('-model_file', type=str)
+parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 
 def _collate_fn(graph):
     return batch(graph)
 
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
+def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
+    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
+    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
+    if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
+        valid_target = target_depth > 0
+    else:
+        valid_target = target_depth < 100.0
+    invalid_pred = predicted_depth <= 0
+    predicted_depth[invalid_pred] = 1e-8
+    loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
+    return loss
+
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=1.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
@@ -57,19 +69,49 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='air
     SILog /= target_depth.size(0)
     return SILog
 
+def compute_Metric(gt, pred, dataset='airsim-mrmps-data'):
+    gt = gt.view(-1, 1, opt.image_size, opt.image_size)
+    pred = pred.view(-1, 1, opt.image_size, opt.image_size)
+    if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
+        valid_target = gt > 0
+    else:
+        valid_target = gt < 100.0
+    invalid_pred = pred <= 0
+    pred[invalid_pred] = 1e-8
+    rmse = (gt[valid_target] - pred[valid_target]) ** 2
+    rmse = torch.sqrt(rmse.mean())
+
+    rmse_log = (torch.log(gt[valid_target]) - torch.log(pred[valid_target])) ** 2
+    rmse_log = torch.sqrt(rmse_log.mean())
+
+    abs_rel = torch.mean(torch.abs(gt[valid_target] - pred[valid_target]) / gt[valid_target])
+
+    sq_rel = torch.mean(((gt[valid_target] - pred[valid_target]) ** 2) / gt[valid_target])
+    return abs_rel, sq_rel, rmse, rmse_log
+
 def test(model, dataloader, stats):
     model.eval()
-    test_loss = 0
+    abs_rel, sq_rel, rmse, rmse_log = 0,0,0,0
     batch_num = 0
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+            # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+            # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
+            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depth,dataset=opt.dataset)
+            abs_rel+=abs_rel_single
+            sq_rel+=sq_rel_single
+            rmse+=rmse_single
+            rmse_log+=rmse_log_single
             batch_num += 1
-    avg_test_loss = test_loss / batch_num
-    return [avg_test_loss]
+    avg_abs_loss = abs_rel / batch_num
+    avg_sq_loss = sq_rel / batch_num
+    avg_rmse_loss = rmse / batch_num
+    avg_rmse_log_loss = rmse_log / batch_num
+
+    return [avg_abs_loss,avg_sq_loss,avg_rmse_loss,avg_rmse_log_loss]
 
 def test_dgl(model, dataloader, stats, opt):
     model.eval()
@@ -82,7 +124,7 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-            test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=0.0, dataset=opt.dataset)
+            test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -178,4 +220,5 @@ if __name__ == '__main__':
         test_losses = test_dgl(model, testloader, dataset.stats, opt)
     t1 = time.time()
     print("Time per epoch= %d s" % (t1 - t0))
-    print(utils.format_losses(*test_losses, split='test'))
+    print(str(test_losses))
+    # print(utils.format_losses(*test_losses, split='test'))

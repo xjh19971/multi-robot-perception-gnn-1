@@ -39,6 +39,7 @@ parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=list, default=None)
+parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
@@ -56,7 +57,7 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=0.0, dataset='airsim-mrmps-data'):
+def compute_Depth_SILog(target_depth, predicted_depth, lambdad=1.0, dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
     predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
     SILog = 0
@@ -85,7 +86,6 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
         pred_depth = model(images, poses, False)
-        # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
@@ -109,7 +109,6 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
-            # loss = compute_Depth_SILog(depths, pred_depth, lambdad=0.5, opt.dataset)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
@@ -231,15 +230,15 @@ if __name__ == '__main__':
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
-    opt.model_file += f'-seed={opt.seed}'
+    #opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
+    #opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 
     # load previous checkpoint or create new model
-    if os.path.isfile(mfile):
+    if os.path.isfile(opt.model_dir+'/'+mfile):
         print(f'[loading previous checkpoint: {mfile}]')
-        checkpoint = torch.load(mfile)
+        checkpoint = torch.load(opt.model_dir+'/'+mfile)
         model = checkpoint['model']
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
