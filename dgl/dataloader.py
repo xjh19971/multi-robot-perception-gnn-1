@@ -626,7 +626,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 # stat_depths = [[] for i in range(self.opt.camera_num)]
                 for i in range(self.opt.camera_num):
                     stat_images[i] = torch.stack(self.images[i], dim=0)
-                    stat_depths[i] = torch.stack(self.depths[i], dim=0)
+                    # stat_depths[i] = torch.stack(self.depths[i], dim=0)
                 stat_images = torch.stack(stat_images, dim=1)
                 # stat_depths = torch.stack(stat_depths, dim=1)
                 self.stats = dict()
