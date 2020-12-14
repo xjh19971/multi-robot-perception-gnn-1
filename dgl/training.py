@@ -42,7 +42,8 @@ parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
 opt.camera_idx = list(map(int,list(opt.camera_idx)))
-opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
+if opt.apply_noise_idx is not None:
+    opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
 opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
