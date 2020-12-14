@@ -171,7 +171,7 @@ if __name__ == '__main__':
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-noise":
         opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise MultiViewDGLDataset]')
+        print(f'[Loading airsim noise SingleViewDataset]')
         dataset = SingleViewDataset(opt)
         print(dataset[0])
     elif opt.dataset=="airsim-dgl":
