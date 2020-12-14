@@ -31,6 +31,7 @@ parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=list, default=[0,1,2,3,4])
 parser.add_argument('-apply_noise_idx', type=list, default=None)
+parser.add_argument('-model_file', type=str)
 opt = parser.parse_args()
 opt.camera_num = len(opt.camera_idx)
 
@@ -155,8 +156,8 @@ if __name__ == '__main__':
         testloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
-    opt.model_file += f'-seed={opt.seed}'
+    #opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
+    #opt.model_file += f'-seed={opt.seed}'
     print(f'[will load model: {opt.model_file}]')
     print(f'[testing camera idx: {opt.camera_idx}]')
     mfile = opt.model_file + '.model'
