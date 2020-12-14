@@ -126,7 +126,7 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
         model.train()
         data = data.to('cuda:0')
         pred_depth = model(data)
-        depths = data.ndata['depth']        
+        depths = data.ndata['depth']
         depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
@@ -232,8 +232,6 @@ if __name__ == '__main__':
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
-    opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 
