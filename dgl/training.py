@@ -289,7 +289,7 @@ if __name__ == '__main__':
         torch.save({'model': model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
-                    'scheduler': scheduler.state_dict()}, opt.model_file + '.model')
+                    'scheduler': scheduler.state_dict()}, opt.model_dir+'/'+mfile)
         model.cuda()
         log_string = f'step {n_iter} | '
         log_string += utils.format_losses(*train_losses, split='train')
