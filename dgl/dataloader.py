@@ -49,8 +49,8 @@ class MultiViewDGLDataset(DGLDataset):
                                 ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=5),
-            transforms.ColorJitter(brightness=0.4,contrast=0.4,saturation=0.4,hue=0.2),
+            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 2.0)),
+            transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
             transforms.ToTensor(),
         ])
 
@@ -403,8 +403,8 @@ class SingleViewDataset(torch.utils.data.Dataset):
         ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=9),
-            transforms.ColorJitter(brightness=0.4,contrast=0.4,saturation=0.4,hue=0.2),
+            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 2.0)),
+            transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
             transforms.ToTensor(),
         ])
         random.seed(self.opt.seed)
