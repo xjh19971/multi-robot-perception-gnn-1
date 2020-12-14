@@ -15,7 +15,7 @@ from dgl import load_graphs, graph, save_graphs
 from dgl.data import DGLDataset
 from dgl.convert import graph as dgl_graph
 from utils import cal_relative_pose
-
+from utils import AddPepperNoise
 class MultiViewDGLDataset(DGLDataset):
     """
     Parameters
@@ -403,7 +403,8 @@ class SingleViewDataset(torch.utils.data.Dataset):
         ])
         self.img_corrupted_transforms = transforms.Compose([
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 2.0)),
+            transforms.GaussianBlur(kernel_size=15, sigma=(0.1, 5.0)),
+            AddPepperNoise(0.7, p=1.0),
             transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
             transforms.ToTensor(),
         ])
