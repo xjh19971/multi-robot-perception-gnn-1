@@ -14,7 +14,7 @@ import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
 from model import models, blocks
 from dgl import batch
-
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 #os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
@@ -259,10 +259,10 @@ if __name__ == '__main__':
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         n_iter = 0
-    if opt.model in ["single_view", "multi_view"]:
-        stats = torch.load(opt.dataset + '/data_stats.pth')
-    elif opt.model in dgl_models:
-        stats = torch.load(dataset.save_dir + '/data_stats-'+str(opt.camera_idx)+'.pth')
+    # if opt.model in ["single_view", "multi_view"]:
+    #     stats = torch.load(opt.dataset + '/data_stats.pth')
+    # elif opt.model in dgl_models:
+    #     stats = torch.load(dataset.save_dir + '/data_stats-'+str(opt.camera_idx)+'.pth')
     if opt.multi_gpu:
         model = torch.nn.DataParallel(model, device_ids=[0, 1])
     model.cuda()
