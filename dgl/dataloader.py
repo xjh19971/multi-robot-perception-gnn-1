@@ -623,20 +623,20 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 print('[computing image and depth stats]')
                 assert self.opt.camera_num == 5
                 stat_images = [[] for i in range(self.opt.camera_num)]
-                # stat_depths = [[] for i in range(self.opt.camera_num)]
+                stat_depths = [[] for i in range(self.opt.camera_num)]
                 for i in range(self.opt.camera_num):
                     stat_images[i] = torch.stack(self.images[i], dim=0)
-                    # stat_depths[i] = torch.stack(self.depths[i], dim=0)
+                    stat_depths[i] = torch.stack(self.depths[i], dim=0)
                 stat_images = torch.stack(stat_images, dim=1)
-                # stat_depths = torch.stack(stat_depths, dim=1)
+                stat_depths = torch.stack(stat_depths, dim=1)
                 self.stats = dict()
                 all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
-                # all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
+                all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
                 # Compute mean and std for each channel
                 self.stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
                 self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
-                # self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
-                # self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+                self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
+                self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
                 torch.save(self.stats, stats_path)
 
         if self.opt.target == 'generate':
