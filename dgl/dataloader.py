@@ -271,7 +271,7 @@ class MultiViewDGLDataset(DGLDataset):
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
-                print('[computing image and depth stats]')
+                print('[computing image and depth stats]  camera_num=', self.opt.camera_num )
                 assert self.opt.camera_num == 5
                 stat_images = [[] for i in range(self.opt.camera_num)]
                 stat_depths = [[] for i in range(self.opt.camera_num)]
