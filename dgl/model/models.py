@@ -83,7 +83,7 @@ class multi_view_model(nn.Module):
         pred_image = self.decoder(h)
         return pred_image
 
-## multi_view_dgl_mean_wofilm
+## multi_view_dgl_add
 # Film edge -> gamma and beta channel-wise
 # m_ij = gamma * F_i + beta
 # F' = [F_i; mean (m_ij)]
@@ -119,6 +119,8 @@ class multi_view_dgl_model(nn.Module):
             h = h.view(-1, h.size()[-3], h.size()[-2], h.size()[-1])
             g.ndata['image'] = h
             g_h = self.gcn(g)
+            ## multi_view_dgl_mean (wo film)
+            #h = g_h+ h 
             h = torch.cat((h,g_h),dim=1)
             #print(h.size()) # (batch, 2560, sz, sz)
             pred_image = self.decoder(h)

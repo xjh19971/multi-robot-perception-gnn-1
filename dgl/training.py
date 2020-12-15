@@ -246,7 +246,7 @@ if __name__ == '__main__':
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
-        utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
+        utils.log(opt.model_dir + '/' + opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         if opt.model == "single_view":
             model = models.single_view_model(opt)

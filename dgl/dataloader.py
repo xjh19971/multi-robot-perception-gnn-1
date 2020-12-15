@@ -230,7 +230,7 @@ class MultiViewDGLDataset(DGLDataset):
                 torch.save(consistent_camera_objects[i], all_data_path[i])
             del consistent_camera_objects, consistent_camera_id
 
-        print(f'[Loading all data]')
+        print(f'[Loading all data]', all_data_path)
         for i in range(len(all_data_path)):
             data = torch.load(all_data_path[i])
             for j in range(len(data)):
@@ -267,7 +267,7 @@ class MultiViewDGLDataset(DGLDataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-             if self.opt.apply_noise is not None:
+             if self.opt.apply_noise_idx is not None:
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
@@ -407,7 +407,7 @@ class MultiViewDGLDataset(DGLDataset):
 
     def has_cache(self):
         # check whether there are processed data in `self.save_path`
-        graph_path = os.path.join(self.save_dir,'dgl_graph_'+str(self.camera_num)+'.bin')
+        graph_path = os.path.join(self.save_dir,self.opt.dataset+'_dgl_graph_'+str(self.camera_num)+'.bin')
         if os.path.exists(graph_path):
             print('[Cached]')
             return True
