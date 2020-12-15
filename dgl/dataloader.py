@@ -9,7 +9,7 @@ import random
 import torch
 from PIL import Image
 from torchvision import transforms
-
+from imagenet_c import gaussian_noise, shot_noise, impulse_noise, motion_blur, snow, jpeg_compression
 
 from dgl import load_graphs, graph, save_graphs
 from dgl.data import DGLDataset
@@ -47,13 +47,6 @@ class MultiViewDGLDataset(DGLDataset):
                                     transforms.Resize((self.opt.image_size, self.opt.image_size)),
                                     transforms.ToTensor(),
                                 ])
-        self.img_corrupted_transforms = transforms.Compose([
-            transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=15, sigma=[0.1, 5.0]),
-            transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
-            AddPepperNoise(snr=0.9,p=1.0),
-            transforms.ToTensor(),
-        ])
 
         if self.opt.dataset == 'airsim-mrmps-data' or self.opt.dataset == 'airsim-mrmps-noise-data':
             pname = 'AirsimDGL'
@@ -109,6 +102,7 @@ class MultiViewDGLDataset(DGLDataset):
         self.images = [[] for i in range(self.real_camera_num)]
         self.depths = [[] for i in range(self.real_camera_num)]
         self.poses = [[] for i in range(self.real_camera_num)]
+        self.severities = [[] for i in range(self.real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
@@ -125,6 +119,7 @@ class MultiViewDGLDataset(DGLDataset):
                 pose_dirs = ['']
             for i in range(self.opt.camera_num):
                 camera_objects = {}
+                severity_dict = {}
                 for dir_data in image_dirs:
                     if self.opt.dataset == 'airsim-mrmps-data' or self.opt.dataset == 'airsim-mrmps-noise-data':
                         files_path = image_path + dir_data + '/' + self.camera_names[i]
@@ -133,14 +128,38 @@ class MultiViewDGLDataset(DGLDataset):
                     file_names = glob.glob(f'{files_path}/*.png')
                     file_names.sort()
                     for file_name in file_names:
+                        noise_operation = None
+                        severity = -1
                         image = Image.open(f'{file_name}')
                         if self.img_transforms is not None:
                             if self.opt.apply_noise_idx is not None and i in self.opt.apply_noise_idx:
-                                image = self.img_corrupted_transforms(image)
+                                noise = random.random()
+                                if noise > 0.2:
+                                    severity = random.randint(1, 5)
+                                    if noise > 0.2 and noise <= 0.3:
+                                        noise_operation = gaussian_noise
+                                    elif noise > 0.3 and noise <= 0.4:
+                                        noise_operation = shot_noise
+                                    elif noise > 0.4 and noise <= 0.5:
+                                        noise_operation = impulse_noise
+                                    elif noise > 0.5 and noise <= 0.7:
+                                        noise_operation = motion_blur
+                                    elif noise > 0.7 and noise <= 0.9:
+                                        noise_operation = snow
+                                    else:
+                                        noise_operation = jpeg_compression
+                                else:
+                                    severity = 0
+                                image = image.convert('RGB')
+                                image = transforms.Resize((self.opt.image_size, self.opt.image_size))(image)
+                                if noise_operation is not None:
+                                    image = noise_operation(image, severity)
+                                image = transforms.ToTensor()(image)
                             else:
                                 image = self.img_transforms(image)
                             image = image[0:3, :, :]
                         camera_objects[file_name[-10:-4]] = [file_name[-10:-4], image]
+                        severity_dict[file_name[-10:-4]] = severity
                 for dir_data in depth_dirs:
                     if self.opt.dataset == 'airsim-mrmps-data' or self.opt.dataset == 'airsim-mrmps-noise-data':
                         files_path = depth_path + dir_data + '/' + self.camera_names[i]
@@ -182,8 +201,10 @@ class MultiViewDGLDataset(DGLDataset):
                                 camera_objects[file_name[-10:-4]].append(pose)
 
                 consistent_objects = []
+                for k, v in severity_dict.items():
+                    camera_objects[k].append(v)
                 for k, v in camera_objects.items():
-                    if len(v) == 4:
+                    if len(v) == 5:
                         consistent_objects.append(v)
 
                 print(f'[Saving {all_data_path[i]} to disk]')
@@ -198,13 +219,13 @@ class MultiViewDGLDataset(DGLDataset):
                 data = torch.load(all_data_path[i])
                 for j in range(len(data)):
                     if not data[j][0] in consistent_camera_id:
-                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3]]]
+                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3], data[j][4]]]
                     else:
-                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
+                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3], data[j][4]])
             for k, v in consistent_camera_id.items():
                 if len(v) == self.opt.camera_num:
                     for i in range(self.opt.camera_num):
-                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2]])
+                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2], v[i][3]])
             for i in range(len(all_data_path)):
                 torch.save(consistent_camera_objects[i], all_data_path[i])
             del consistent_camera_objects, consistent_camera_id
@@ -216,6 +237,7 @@ class MultiViewDGLDataset(DGLDataset):
                 self.images[i].append(data[j][0])
                 self.depths[i].append(data[j][1])
                 self.poses[i].append(data[j][2])
+                self.severities[i].append(data[j][3])
 
         splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
@@ -402,13 +424,6 @@ class SingleViewDataset(torch.utils.data.Dataset):
             transforms.Resize((self.opt.image_size, self.opt.image_size)),
             transforms.ToTensor(),
         ])
-        self.img_corrupted_transforms = transforms.Compose([
-            transforms.Resize((self.opt.image_size, self.opt.image_size)),
-            transforms.GaussianBlur(kernel_size=15, sigma=[0.1, 5.0]),
-            transforms.ColorJitter(brightness=0.7,contrast=0.7,saturation=0.7,hue=0.1),
-            AddPepperNoise(snr=0.9,p=1.0),
-            transforms.ToTensor(),
-        ])
         random.seed(self.opt.seed)
         numpy.random.seed(self.opt.seed)
         torch.manual_seed(self.opt.seed)
@@ -433,6 +448,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         self.images = [[] for i in range(self.real_camera_num)]
         self.depths = [[] for i in range(self.real_camera_num)]
         self.poses = [[] for i in range(self.real_camera_num)]
+        self.severities = [[] for i in range(self.real_camera_num)]
 
         if not os.path.exists(all_data_path[-1]):
             assert (self.opt.camera_num == 5)
@@ -449,6 +465,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 pose_dirs = ['']
             for i in range(self.opt.camera_num):
                 camera_objects = {}
+                severity_dict = {}
                 for dir_data in image_dirs:
                     if self.opt.dataset == 'airsim-mrmps-data' or self.opt.dataset == 'airsim-mrmps-noise-data':
                         files_path = image_path + dir_data + '/' + self.camera_names[i]
@@ -457,14 +474,38 @@ class SingleViewDataset(torch.utils.data.Dataset):
                     file_names = glob.glob(f'{files_path}/*.png')
                     file_names.sort()
                     for file_name in file_names:
+                        noise_operation = None
+                        severity = -1
                         image = Image.open(f'{file_name}')
                         if self.img_transforms is not None:
                             if self.opt.apply_noise_idx is not None and i in self.opt.apply_noise_idx:
-                                image = self.img_corrupted_transforms(image)
+                                noise = random.random()
+                                if noise > 0.2:
+                                    severity=random.randint(1,5)
+                                    if noise>0.2 and noise<=0.3:
+                                        noise_operation=gaussian_noise
+                                    elif noise>0.3 and noise<=0.4:
+                                        noise_operation = shot_noise
+                                    elif noise>0.4 and noise<=0.5:
+                                        noise_operation = impulse_noise
+                                    elif noise>0.5 and noise<=0.7:
+                                        noise_operation = motion_blur
+                                    elif noise>0.7 and noise<=0.9:
+                                        noise_operation = snow
+                                    else:
+                                        noise_operation = jpeg_compression
+                                else:
+                                    severity = 0
+                                image=image.convert('RGB')
+                                image = transforms.Resize((self.opt.image_size, self.opt.image_size))(image)
+                                if noise_operation is not None:
+                                    image = noise_operation(image, severity)
+                                image = transforms.ToTensor()(image)
                             else:
                                 image = self.img_transforms(image)
                             image = image[0:3, :, :]
                         camera_objects[file_name[-10:-4]] = [file_name[-10:-4], image]
+                        severity_dict[file_name[-10:-4]] = severity
                 for dir_data in depth_dirs:
                     if self.opt.dataset == 'airsim-mrmps-data' or self.opt.dataset == 'airsim-mrmps-noise-data':
                         files_path = depth_path + dir_data + '/' + self.camera_names[i]
@@ -506,8 +547,10 @@ class SingleViewDataset(torch.utils.data.Dataset):
                                 camera_objects[file_name[-10:-4]].append(pose)
 
                 consistent_objects = []
+                for k, v in severity_dict.items():
+                    camera_objects[k].append(v)
                 for k, v in camera_objects.items():
-                    if len(v) == 4:
+                    if len(v) == 5:
                         consistent_objects.append(v)
 
                 print(f'[Saving {all_data_path[i]} to disk]')
@@ -522,13 +565,13 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 data = torch.load(all_data_path[i])
                 for j in range(len(data)):
                     if not data[j][0] in consistent_camera_id:
-                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3]]]
+                        consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3], data[j][4]]]
                     else:
-                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3]])
+                        consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3], data[j][4]])
             for k, v in consistent_camera_id.items():
                 if len(v) == self.opt.camera_num:
                     for i in range(self.opt.camera_num):
-                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2]])
+                        consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2], v[i][3]])
             for i in range(len(all_data_path)):
                 torch.save(consistent_camera_objects[i], all_data_path[i])
             del consistent_camera_objects, consistent_camera_id
@@ -540,6 +583,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 self.images[i].append(data[j][0])
                 self.depths[i].append(data[j][1])
                 self.poses[i].append(data[j][2])
+                self.severities[i].append(data[j][3])
 
         splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
@@ -551,7 +595,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             if self.opt.target == 'generate':
                 self.generated_indx = np.concatenate([self.train_val_indx, self.test_indx])
         else:
-            if self.opt.apply_noise is not None:
+            if self.opt.apply_noise_idx is not None:
                 print('splits.pth not found! splits for noise_data should be copied from data.')
                 raise KeyError
             else:
@@ -575,7 +619,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
         else:
-             if self.opt.apply_noise is not None:
+             if self.opt.apply_noise_idx is not None:
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
