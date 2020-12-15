@@ -673,6 +673,9 @@ class SingleViewDataset(torch.utils.data.Dataset):
         pose = torch.stack(pose, dim=0)
         depth = torch.stack(depth, dim=0)
         image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
+        image = image.float()
+        pose = pose.float()
+        depth = depth.float()
         # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         return image, pose, depth
 
