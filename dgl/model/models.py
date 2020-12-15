@@ -109,7 +109,7 @@ class multi_view_dgl_model(nn.Module):
         self.opt = opt
         self.encoder = encoder(self.opt)
         self.gcn = GCN(self.opt)
-        self.decoder = decoder(self.opt, 1280)
+        self.decoder = decoder(self.opt, 1280*2)
 
     def forward(self, g):
         with g.local_scope():
@@ -119,7 +119,9 @@ class multi_view_dgl_model(nn.Module):
             h = h.view(-1, h.size()[-3], h.size()[-2], h.size()[-1])
             g.ndata['image'] = h
             g_h = self.gcn(g)
-            h = g_h+ h 
+            ## multi_view_dgl_mean (wo film)
+            #h = g_h+ h 
+            h = torch.cat((h,g_h),dim=1)
             #print(h.size()) # (batch, 2560, sz, sz)
             pred_image = self.decoder(h)
             return pred_image
@@ -139,10 +141,10 @@ class GCN(nn.Module):
     def forward(self,g):
         with g.local_scope():
             # multi_view_dgl_mean
-            g.edata['pose_gamma'], g.edata['pose_beta'] = self.edge_encoder(g.edata['pose'])
-            g.update_all(edge_udf,node_udf)
+            #g.edata['pose_gamma'], g.edata['pose_beta'] = self.edge_encoder(g.edata['pose'])
+            #g.update_all(edge_udf,node_udf)
             # multi_view_dgl_mean_wofilm
-            #g.update_all(fn.copy_u('image','m'),node_udf)
+            g.update_all(fn.copy_u('image','m'),node_udf)
             return g.ndata['images']
             
 

@@ -1,7 +1,7 @@
 ## multi_view_dgl_add
 # Film edge -> gamma and beta channel-wise
 # m_ij = gamma * F_i + beta
-# F' = [F_i; mean (m_ij)]
+# F' = F_i+ mean (m_ij)
 # decoder 1280*2
 class edge_encoder(nn.Module):
     def __init__(self,layers_dim = [1280, 1280]):
