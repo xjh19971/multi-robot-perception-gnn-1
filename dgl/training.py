@@ -232,7 +232,7 @@ if __name__ == '__main__':
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
 
     # define model file name
-    opt.model_file = f'{opt.model_dir}/model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
+    opt.model_file = f'model={opt.model}-bsize={opt.batch_size}-lrt={opt.lrt}-camera_idx={opt.camera_idx}'
     opt.model_file += f'-seed={opt.seed}'
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
@@ -248,7 +248,7 @@ if __name__ == '__main__':
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)
         scheduler.load_state_dict(checkpoint['scheduler'])
         n_iter = checkpoint['n_iter']
-        utils.log(opt.model_file + '.log', '[resuming from checkpoint]')
+        utils.log(opt.model_dir + '/' + opt.model_file + '.log', '[resuming from checkpoint]')
     else:
         if opt.model == "single_view":
             model = models.single_view_model(opt)
@@ -294,4 +294,4 @@ if __name__ == '__main__':
         log_string += utils.format_losses(*train_losses, split='train')
         log_string += utils.format_losses(*val_losses, split='valid')
         print(log_string)
-        utils.log(opt.model_file + '.log', log_string)
+        utils.log(opt.model_dir + '/' +opt.model_file + '.log', log_string)
