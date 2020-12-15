@@ -342,11 +342,11 @@ class MultiViewDGLDataset(DGLDataset):
         else:
             dim = 1
         if use_cuda:
-            objects *= mean.view(1, dim, 1, 1).cuda()
-            objects += std.view(1, dim, 1, 1).cuda()
+            objects *= std.view(1, 1, dim, 1, 1).cuda()
+            objects += mean.view(1, 1, dim, 1, 1).cuda()
         else:
-            objects *= mean.view(dim, 1, 1)
-            objects += std.view(dim, 1, 1)
+            objects *= std.view(dim, 1, 1)
+            objects += mean.view(dim, 1, 1)
         return objects
     @property
     def images_mean(self):
@@ -707,9 +707,9 @@ class SingleViewDataset(torch.utils.data.Dataset):
         else:
             dim = 1
         if use_cuda:
-            objects *= mean.view(1, 1, dim, 1, 1).cuda()
-            objects += std.view(1, 1, dim, 1, 1).cuda()
+            objects *= std.view(1, 1, dim, 1, 1).cuda()
+            objects += mean.view(1, 1, dim, 1, 1).cuda()
         else:
-            objects *= mean.view(dim, 1, 1)
-            objects += std.view(dim, 1, 1)
+            objects *= std.view(dim, 1, 1)
+            objects += mean.view(dim, 1, 1)
         return objects
