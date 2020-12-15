@@ -11,9 +11,6 @@ from dataloader import MRPGDataSet
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
-#################################################
-# Train an action-conditional forward model
-#################################################
 
 parser = argparse.ArgumentParser()
 # data params
