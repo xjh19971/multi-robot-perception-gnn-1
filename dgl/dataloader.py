@@ -388,7 +388,7 @@ class MultiViewDGLDataset(DGLDataset):
         graphs, _ = load_graphs(os.path.join(self.save_dir, 'dgl_graph_'+str(self.camera_num)+'.bin'))
         self.graphs = graphs
 
-        splits_path = self.save_dir + '/splits-'+str(self.camera_num)+'.pth'
+        splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
             print(f'[loading data splits: {splits_path}]')
             self.splits = torch.load(splits_path)
@@ -397,7 +397,7 @@ class MultiViewDGLDataset(DGLDataset):
             self.test_indx = self.splits.get('test_indx')
         else:
             raise NameError('splits.pth not existed')
-        stats_path = self.save_dir + '/data_stats-'+str(self.camera_num)+'.pth'
+        stats_path = self.opt.dataset + '/data_stats.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
@@ -407,7 +407,7 @@ class MultiViewDGLDataset(DGLDataset):
 
     def has_cache(self):
         # check whether there are processed data in `self.save_path`
-        graph_path = os.path.join(self.save_dir,self.opt.dataset+'_dgl_graph_'+str(self.camera_num)+'.bin')
+        graph_path = os.path.join(self.save_dir,'dgl_graph_'+str(self.camera_num)+'.bin')
         if os.path.exists(graph_path):
             print('[Cached]')
             return True

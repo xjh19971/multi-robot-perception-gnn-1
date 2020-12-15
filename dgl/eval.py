@@ -162,18 +162,18 @@ if __name__ == '__main__':
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-noise":
         opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        print(f'[Loading airsim noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
         print(dataset[0])
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-data", save_dir="airsim-mrmps-process")
         print(dataset[0])
     elif opt.dataset=="airsim-noise-dgl":
         opt.dataset = "airsim-mrmps-noise-data"
         print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-noise-data", save_dir="airsim-mrmps-noise-process")
         print(dataset[0])
     elif opt.dataset=="cargo":
         opt.dataset = "cargo"
@@ -186,12 +186,12 @@ if __name__ == '__main__':
     elif opt.dataset=="cargo-dgl":
         opt.dataset = "cargo"
         print(f'[Loading cargo MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="cargo", save_dir="cargo-process")
         print(dataset[0])
     elif opt.dataset=="cargo-noise-dgl":
         opt.dataset = "cargo-noise"
         print(f'[Loading cargo noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="cargo-noise", save_dir="cargo-noise-process")
         print(dataset[0])
     elif opt.dataset=="industrial":
         opt.dataset = "industrial"
@@ -204,12 +204,12 @@ if __name__ == '__main__':
     elif opt.dataset=="industrial-dgl":
         opt.dataset = "industrial"
         print(f'[Loading industrial MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="industrial", save_dir="industrial-process")
         print(dataset[0])
     elif opt.dataset=="industrial-noise-dgl":
         opt.dataset = "industrial-noise"
         print(f'[Loading industrial noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="industrial-noise", save_dir="industrial-noise-process")
         print(dataset[0])
 
     if opt.model in dgl_models:

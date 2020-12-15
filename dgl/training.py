@@ -287,6 +287,7 @@ if __name__ == '__main__':
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
                     'scheduler': scheduler.state_dict()}, opt.model_dir+'/best-'+mfile)
+            min_val_loss = val_losses[0]
         n_iter += 1
         model.cpu()
         torch.save({'model': model,
