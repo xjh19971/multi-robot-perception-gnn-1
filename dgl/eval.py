@@ -130,12 +130,16 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            images = data.ndata['image']
+            images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             if opt.visualization:
                 for i in range(len(opt.camera_num)):
+                    image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
                     heatmap = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
                     heatmap_gt = cv2.applyColorMap(depths_gt[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
                     cv2.imwrite('vis/depth/'+str(i)+str(batch_num)+'.png', heatmap)
                     cv2.imwrite('vis/depth_gt/'+str(i)+str(batch_num)+'.png', heatmap_gt)
+                    cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
@@ -160,6 +164,7 @@ if __name__ == '__main__':
         os.system('mkdir -p ' + 'vis')
         os.system('mkdir -p ' + 'vis/depth')
         os.system('mkdir -p ' + 'vis/depth_gt')
+        os.system('mkdir -p ' + 'vis/image')
     random.seed(opt.seed)
     numpy.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
