@@ -103,6 +103,14 @@ def test(model, dataloader, stats):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
+            if opt.visualization:
+                for i in range(len(opt.camera_num)):
+                    image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
+                    heatmap = cv2.applyColorMap(pred_depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
+                    heatmap_gt = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
+                    cv2.imwrite('vis/depth/'+str(i)+str(batch_num)+'.png', heatmap)
+                    cv2.imwrite('vis/depth_gt/'+str(i)+str(batch_num)+'.png', heatmap_gt)
+                    cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depth,dataset=opt.dataset)
