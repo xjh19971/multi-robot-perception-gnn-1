@@ -34,6 +34,7 @@ parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=str, default="01234")
+parser.add_argument('-eval_camera_idx', type=str, default="01234")
 parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
@@ -43,7 +44,9 @@ opt = parser.parse_args()
 opt.camera_idx = list(map(int,list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
+opt.eval_camera_idx = list(map(int,list(opt.eval_camera_idx)))
 opt.camera_num = len(opt.camera_idx)
+opt.eval_camera_num = len(opt.eval_camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
@@ -198,9 +201,9 @@ if __name__ == '__main__':
         dataset = MultiViewDGLDataset(opt, raw_dir="cargo", save_dir="cargo-process")
         print(dataset[0])
     elif opt.dataset=="cargo-noise-dgl":
-        opt.dataset = "cargo-noise"
+        opt.dataset = "cargo-noise-"+str(len(opt.apply_noise_idx))
         print(f'[Loading cargo noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="cargo-noise", save_dir="cargo-noise-process")
+        dataset = MultiViewDGLDataset(opt, raw_dir="cargo-noise-"+str(len(opt.apply_noise_idx)), save_dir="cargo-noise-"+str(len(opt.apply_noise_idx))+"-process")
         print(dataset[0])
     elif opt.dataset=="industrial":
         opt.dataset = "industrial"
@@ -216,9 +219,9 @@ if __name__ == '__main__':
         dataset = MultiViewDGLDataset(opt, raw_dir="industrial", save_dir="industrial-process")
         print(dataset[0])
     elif opt.dataset=="industrial-noise-dgl":
-        opt.dataset = "industrial-noise"
+        opt.dataset = "industrial-noise-"+str(len(opt.apply_noise_idx))
         print(f'[Loading industrial noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="industrial-noise", save_dir="industrial-noise-process")
+        dataset = MultiViewDGLDataset(opt, raw_dir="industrial-noise-"+str(len(opt.apply_noise_idx)), save_dir="industrial-noise-"+str(len(opt.apply_noise_idx))+"-process")
         print(dataset[0])
 
     trainset, valset = torch.utils.data.random_split(dataset,

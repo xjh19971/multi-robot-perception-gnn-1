@@ -314,7 +314,7 @@ class MultiViewDGLDataset(DGLDataset):
                 image_set.append(self.normalise_object(self.images[cam][item], self.stats['images_mean'], self.stats['images_std'],'image'))
                 depth_set.append(self.depths[cam][item])
                 feature_set.append(torch.zeros(8,8,1280))
-            g.ndata['image'] = torch.stack(image_set, dim=0)
+            g.ndata['image'] = torch.stack(image_set, dim=0).float()
             g.ndata['depth'] = torch.stack(depth_set, dim=0)
             #g.ndata['feature'] = torch.stack(feature_set, dim=0)
             for i in range(self.opt.camera_num):
@@ -322,7 +322,7 @@ class MultiViewDGLDataset(DGLDataset):
                     if not (i==j):
                         relative_pose = cal_relative_pose(self.poses[i][item][1:].numpy(), self.poses[j][item][1:].numpy())
                         edge_set.append(torch.from_numpy(relative_pose))
-            g.edata['pose'] = torch.stack(edge_set,dim=0)
+            g.edata['pose'] = torch.stack(edge_set,dim=0).float()
             self.graphs.append(g)
 
     @staticmethod
