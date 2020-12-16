@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from matplotlib import pyplot as plt
 
 import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
@@ -43,24 +44,24 @@ opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
-def visualization(images, gt, pred, stats, batch_idx):
+def visualization(images, gts, preds, stats, batch_idx):
     for i in range(opt.camera_num):
         image = (SingleViewDataset.unormalise_object(images, stats['images_mean'], stats['images_std'], 'image',
                                                      use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1,2,0) * 255.).astype(np.uint8)
         max_depth = stats['max_depth'].numpy()
-        gt = gt[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        gt = gts[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         gt[gt < 0] = 0
         gt[gt > max_depth] = max_depth
         gt = gt / max_depth
-        pred = pred[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        pred = preds[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         pred[pred < 0] = 0
         pred[pred > max_depth] = max_depth
         pred = pred / max_depth
         heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
         heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        cv2.imwrite('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap)
-        cv2.imwrite('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt)
-        cv2.imwrite('vis/image/' + str(i) + str(batch_idx) + '.png', image)
+        plt.imsave('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap)
+        plt.imsave('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt)
+        plt.imsave('vis/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
