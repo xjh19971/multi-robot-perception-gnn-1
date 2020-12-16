@@ -104,7 +104,7 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depth = model(images, poses, False)
             if opt.visualization:
-                for i in range(len(opt.camera_num)):
+                for i in range(opt.camera_num):
                     image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
                     heatmap = cv2.applyColorMap(pred_depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
                     heatmap_gt = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
@@ -141,7 +141,7 @@ def test_dgl(model, dataloader, stats, opt):
             images = data.ndata['image']
             images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             if opt.visualization:
-                for i in range(len(opt.camera_num)):
+                for i in range(opt.camera_num):
                     image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
                     heatmap = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
                     heatmap_gt = cv2.applyColorMap(depths_gt[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
