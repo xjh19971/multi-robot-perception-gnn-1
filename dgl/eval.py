@@ -1,20 +1,21 @@
 import argparse
+import cv2
 import math
+import numpy as np
 import os
 import random
 import time
-
-import cv2
-import numpy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from matplotlib import pyplot as plt
 
 import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
-from model import models, blocks
 from dgl import batch
+from model import models, blocks
+
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
@@ -42,6 +43,29 @@ opt.camera_num = len(opt.camera_idx)
 
 def _collate_fn(graph):
     return batch(graph)
+
+def visualization(images, gts, preds, stats, batch_idx):
+    if opt.apply_noise_idx is not None:
+        vis_camera = 1
+    else:
+        vis_camera = opt.camera_num
+    for i in range(vis_camera):
+        image = (SingleViewDataset.unormalise_object(images.clone(), stats['images_mean'], stats['images_std'], 'image',
+                                                     use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1,2,0) * 255.).astype(np.uint8)
+        max_depth = stats['max_depth'].numpy()
+        gt = gts[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        gt[gt < 0] = 0
+        gt[gt > max_depth] = max_depth
+        gt = gt / max_depth
+        pred = preds[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        pred[pred < 0] = 0
+        pred[pred > max_depth] = max_depth
+        pred = pred / max_depth
+        heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
+        heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
+        plt.imsave('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap, cmap='magma', vmax=max_depth)
+        plt.imsave('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt, cmap='magma', vmax=max_depth)
+        plt.imsave('vis/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -102,10 +126,12 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses, False)
+            pred_depths = model(images, poses, False)
+            if opt.visualization:
+                visualization(images, depths, pred_depths, stats, batch_idx)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
-            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depth,dataset=opt.dataset)
+            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depths,dataset=opt.dataset)
             abs_rel+=abs_rel_single
             sq_rel+=sq_rel_single
             rmse+=rmse_single
@@ -130,10 +156,10 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            images = data.ndata['image']
+            images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             if opt.visualization:
-                print((depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1)).shape)
-                cv2.imwrite('vis/depth/'+str(batch_num)+'.png', depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1))
-                cv2.imwrite('vis/depth_gt/'+str(batch_num)+'.png', pred_depth[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1 ))
+                visualization(images, depths, pred_depths, stats, batch_idx)
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
@@ -154,8 +180,13 @@ def test_dgl(model, dataloader, stats, opt):
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
+    if opt.visualization:
+        os.system('mkdir -p ' + 'vis')
+        os.system('mkdir -p ' + 'vis/depth')
+        os.system('mkdir -p ' + 'vis/depth_gt')
+        os.system('mkdir -p ' + 'vis/image')
     random.seed(opt.seed)
-    numpy.random.seed(opt.seed)
+    np.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
     torch.cuda.manual_seed(opt.seed)
 
