@@ -45,7 +45,11 @@ def _collate_fn(graph):
     return batch(graph)
 
 def visualization(images, gts, preds, stats, batch_idx):
-    for i in range(opt.camera_num):
+    if opt.apply_noise_idx is not None:
+        vis_camera = 1
+    else:
+        vis_camera = opt.camera_num
+    for i in range(vis_camera):
         image = (SingleViewDataset.unormalise_object(images.clone(), stats['images_mean'], stats['images_std'], 'image',
                                                      use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1,2,0) * 255.).astype(np.uint8)
         max_depth = stats['max_depth'].numpy()
