@@ -131,9 +131,11 @@ def test_dgl(model, dataloader, stats, opt):
             depths = data.ndata['depth']
             depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             if opt.visualization:
-                print((depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1)).shape)
-                cv2.imwrite('vis/depth/'+str(batch_num)+'.png', depths[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1))
-                cv2.imwrite('vis/depth_gt/'+str(batch_num)+'.png', pred_depth[:,0, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size,1 ))
+                for i in range(len(opt.camera_num)):
+                    heatmap = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
+                    heatmap_gt = cv2.applyColorMap(depths_gt[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
+                    cv2.imwrite('vis/depth/'+str(i)+str(batch_num)+'.png', heatmap)
+                    cv2.imwrite('vis/depth_gt/'+str(i)+str(batch_num)+'.png', heatmap_gt)
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
@@ -154,6 +156,10 @@ def test_dgl(model, dataloader, stats, opt):
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
+    if opt.visualization:
+        os.system('mkdir -p ' + 'vis')
+        os.system('mkdir -p ' + 'vis/depth')
+        os.system('mkdir -p ' + 'vis/depth_gt')
     random.seed(opt.seed)
     numpy.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
