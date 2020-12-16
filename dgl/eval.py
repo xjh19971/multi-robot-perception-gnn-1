@@ -46,13 +46,13 @@ def _collate_fn(graph):
 def visualization(images, gt, pred, stats):
     for i in range(opt.camera_num):
         image = (SingleViewDataset.unormalise_object(images, stats['images_mean'], stats['images_std'], 'image',
-                                                     use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).permute(1,2,0) * 255.).byte()
+                                                     use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1,2,0) * 255.).byte()
         max_depth = stats['max_depth'].numpy()
-        gt = gt[:, i, :, :, :].cpu().numpy().permute(1, 2, 0)
+        gt = gt[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         gt[gt < 0] = 0
         gt[gt > max_depth] = max_depth
         gt = gt / max_depth
-        pred = pred[:, i, :, :, :].cpu().numpy().permute(1, 2, 0)
+        pred = pred[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         pred[pred < 0] = 0
         pred[pred > max_depth] = max_depth
         pred = pred / max_depth
