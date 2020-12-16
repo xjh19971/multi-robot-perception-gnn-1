@@ -59,8 +59,8 @@ def visualization(images, gts, preds, stats, batch_idx):
         pred = pred / max_depth
         heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
         heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        plt.imsave('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap)
-        plt.imsave('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt)
+        plt.imsave('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap, cmap='magma', vmax=max_depth)
+        plt.imsave('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt, cmap='magma', vmax=max_depth)
         plt.imsave('vis/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
