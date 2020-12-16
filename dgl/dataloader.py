@@ -271,7 +271,7 @@ class MultiViewDGLDataset(DGLDataset):
                 print('data_stats.pth not found! data_stats for noise_data should be copied from data.')
                 raise KeyError
              else:
-                print('[computing image and depth stats]')
+                print('[computing image and depth stats]  camera_num=', self.opt.camera_num )
                 assert self.opt.camera_num == 5
                 stat_images = [[] for i in range(self.opt.camera_num)]
                 stat_depths = [[] for i in range(self.opt.camera_num)]
@@ -314,7 +314,7 @@ class MultiViewDGLDataset(DGLDataset):
                 image_set.append(self.normalise_object(self.images[cam][item], self.stats['images_mean'], self.stats['images_std'],'image'))
                 depth_set.append(self.depths[cam][item])
                 feature_set.append(torch.zeros(8,8,1280))
-            g.ndata['image'] = torch.stack(image_set, dim=0)
+            g.ndata['image'] = torch.stack(image_set, dim=0).float()
             g.ndata['depth'] = torch.stack(depth_set, dim=0)
             #g.ndata['feature'] = torch.stack(feature_set, dim=0)
             for i in range(self.opt.camera_num):
@@ -322,7 +322,7 @@ class MultiViewDGLDataset(DGLDataset):
                     if not (i==j):
                         relative_pose = cal_relative_pose(self.poses[i][item][1:].numpy(), self.poses[j][item][1:].numpy())
                         edge_set.append(torch.from_numpy(relative_pose))
-            g.edata['pose'] = torch.stack(edge_set,dim=0)
+            g.edata['pose'] = torch.stack(edge_set,dim=0).float()
             self.graphs.append(g)
 
     @staticmethod
@@ -388,7 +388,7 @@ class MultiViewDGLDataset(DGLDataset):
         graphs, _ = load_graphs(os.path.join(self.save_dir, 'dgl_graph_'+str(self.camera_num)+'.bin'))
         self.graphs = graphs
 
-        splits_path = self.save_dir + '/splits-'+str(self.camera_num)+'.pth'
+        splits_path = self.opt.dataset + '/splits.pth'
         if os.path.exists(splits_path):
             print(f'[loading data splits: {splits_path}]')
             self.splits = torch.load(splits_path)
@@ -397,7 +397,7 @@ class MultiViewDGLDataset(DGLDataset):
             self.test_indx = self.splits.get('test_indx')
         else:
             raise NameError('splits.pth not existed')
-        stats_path = self.save_dir + '/data_stats-'+str(self.camera_num)+'.pth'
+        stats_path = self.opt.dataset + '/data_stats.pth'
         if os.path.isfile(stats_path):
             print(f'[loading data stats: {stats_path}]')
             self.stats = torch.load(stats_path)
@@ -407,7 +407,7 @@ class MultiViewDGLDataset(DGLDataset):
 
     def has_cache(self):
         # check whether there are processed data in `self.save_path`
-        graph_path = os.path.join(self.save_dir,self.opt.dataset+'_dgl_graph_'+str(self.camera_num)+'.bin')
+        graph_path = os.path.join(self.save_dir,'dgl_graph_'+str(self.camera_num)+'.bin')
         if os.path.exists(graph_path):
             print('[Cached]')
             return True

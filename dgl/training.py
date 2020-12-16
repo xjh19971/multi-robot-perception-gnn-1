@@ -34,6 +34,7 @@ parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
 parser.add_argument('-camera_idx', type=str, default="01234")
+parser.add_argument('-eval_camera_idx', type=str, default="01234")
 parser.add_argument('-pretrained', action="store_true", default=True)
 parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
@@ -43,7 +44,9 @@ opt = parser.parse_args()
 opt.camera_idx = list(map(int,list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
+opt.eval_camera_idx = list(map(int,list(opt.eval_camera_idx)))
 opt.camera_num = len(opt.camera_idx)
+opt.eval_camera_num = len(opt.eval_camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
@@ -176,12 +179,12 @@ if __name__ == '__main__':
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-data", save_dir="airsim-mrmps-process")
         print(dataset[0])
     elif opt.dataset=="airsim-noise-dgl":
         opt.dataset = "airsim-mrmps-noise-data"
         print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-noise-data", save_dir="airsim-mrmps-noise-process")
         print(dataset[0])
     elif opt.dataset=="cargo":
         opt.dataset = "cargo"
@@ -198,17 +201,12 @@ if __name__ == '__main__':
     elif opt.dataset=="cargo-dgl":
         opt.dataset = "cargo"
         print(f'[Loading cargo MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="cargo", save_dir="cargo-process")
         print(dataset[0])
-    elif opt.dataset=="cargo-noise-1-dgl":
-        opt.dataset = "cargo-noise-1"
+    elif opt.dataset=="cargo-noise-dgl":
+        opt.dataset = "cargo-noise-"+str(len(opt.apply_noise_idx))
         print(f'[Loading cargo noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
-        print(dataset[0])
-    elif opt.dataset=="cargo-noise-2-dgl":
-        opt.dataset = "cargo-noise-2"
-        print(f'[Loading cargo noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="cargo-noise-"+str(len(opt.apply_noise_idx)), save_dir="cargo-noise-"+str(len(opt.apply_noise_idx))+"-process")
         print(dataset[0])
     elif opt.dataset=="industrial":
         opt.dataset = "industrial"
@@ -225,17 +223,12 @@ if __name__ == '__main__':
     elif opt.dataset=="industrial-dgl":
         opt.dataset = "industrial"
         print(f'[Loading industrial MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="industrial", save_dir="industrial-process")
         print(dataset[0])
-    elif opt.dataset=="industrial-noise-1-dgl":
-        opt.dataset = "industrial-noise-1"
+    elif opt.dataset=="industrial-noise-dgl":
+        opt.dataset = "industrial-noise-"+str(len(opt.apply_noise_idx))
         print(f'[Loading industrial noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
-        print(dataset[0])
-    elif opt.dataset=="industrial-noise-2-dgl":
-        opt.dataset = "industrial-noise-2"
-        print(f'[Loading industrial noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
+        dataset = MultiViewDGLDataset(opt, raw_dir="industrial-noise-"+str(len(opt.apply_noise_idx)), save_dir="industrial-noise-"+str(len(opt.apply_noise_idx))+"-process")
         print(dataset[0])
 
     trainset, valset = torch.utils.data.random_split(dataset,
@@ -285,6 +278,7 @@ if __name__ == '__main__':
 
     print('[training]')
     print('[Batch size]: ', opt.batch_size)
+    min_val_loss = 1000000000
     for epoch in range(opt.epoch):
         t0 = time.time()
         if opt.model == "single_view":
@@ -298,6 +292,12 @@ if __name__ == '__main__':
         elif opt.model in dgl_models:
             val_losses = test_dgl(model, valloader, dataset.stats, opt)
         scheduler.step(val_losses[0])
+        if val_losses[0] < min_val_loss:
+            torch.save({'model': model,
+                    'optimizer': optimizer.state_dict(),
+                    'n_iter': n_iter,
+                    'scheduler': scheduler.state_dict()}, opt.model_dir+'/best-'+mfile)
+            min_val_loss = val_losses[0]
         n_iter += 1
         model.cpu()
         torch.save({'model': model,
