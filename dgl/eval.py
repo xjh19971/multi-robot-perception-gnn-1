@@ -1,7 +1,7 @@
 import argparse
 import cv2
 import math
-import numpy
+import numpy as np
 import os
 import random
 import time
@@ -181,7 +181,7 @@ if __name__ == '__main__':
         os.system('mkdir -p ' + 'vis/depth_gt')
         os.system('mkdir -p ' + 'vis/image')
     random.seed(opt.seed)
-    numpy.random.seed(opt.seed)
+    np.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
     torch.cuda.manual_seed(opt.seed)
 
