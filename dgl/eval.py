@@ -43,7 +43,7 @@ opt.camera_num = len(opt.camera_idx)
 def _collate_fn(graph):
     return batch(graph)
 
-def visualization(images, gt, pred, stats):
+def visualization(images, gt, pred, stats, batch_idx):
     for i in range(opt.camera_num):
         image = (SingleViewDataset.unormalise_object(images, stats['images_mean'], stats['images_std'], 'image',
                                                      use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1,2,0) * 255.).astype(np.uint8)
@@ -58,9 +58,9 @@ def visualization(images, gt, pred, stats):
         pred = pred / max_depth
         heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
         heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        cv2.imwrite('vis/depth/' + str(i) + str(batch_num) + '.png', heatmap)
-        cv2.imwrite('vis/depth_gt/' + str(i) + str(batch_num) + '.png', heatmap_gt)
-        cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
+        cv2.imwrite('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap)
+        cv2.imwrite('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt)
+        cv2.imwrite('vis/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -123,7 +123,7 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depths = model(images, poses, False)
             if opt.visualization:
-                visualization(images, depths, pred_depths, stats)
+                visualization(images, depths, pred_depths, stats, batch_idx)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depths,dataset=opt.dataset)
@@ -154,7 +154,7 @@ def test_dgl(model, dataloader, stats, opt):
             images = data.ndata['image']
             images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             if opt.visualization:
-                visualization(images, depths, pred_depths, stats)
+                visualization(images, depths, pred_depths, stats, batch_idx)
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
