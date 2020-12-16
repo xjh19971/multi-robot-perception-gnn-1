@@ -162,9 +162,8 @@ if __name__ == '__main__':
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-noise":
         opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt)
-        print(dataset[0])
+        print(f'[Loading airsim noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
     elif opt.dataset=="airsim-dgl":
         opt.dataset = "airsim-mrmps-data"
         print(f'[Loading airsim MultiViewDGLDataset]')
@@ -179,8 +178,12 @@ if __name__ == '__main__':
         opt.dataset = "cargo"
         print(f'[Loading cargo SingleViewDataset]')
         dataset = SingleViewDataset(opt)
-    elif opt.dataset=="cargo-noise":
-        opt.dataset = "cargo-noise"
+    elif opt.dataset=="cargo-noise-1":
+        opt.dataset = "cargo-noise-1"
+        print(f'[Loading cargo noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="cargo-noise-2":
+        opt.dataset = "cargo-noise-2"
         print(f'[Loading cargo noise SingleViewDataset]')
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="cargo-dgl":
@@ -188,8 +191,13 @@ if __name__ == '__main__':
         print(f'[Loading cargo MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
-    elif opt.dataset=="cargo-noise-dgl":
-        opt.dataset = "cargo-noise"
+    elif opt.dataset=="cargo-noise-1-dgl":
+        opt.dataset = "cargo-noise-1"
+        print(f'[Loading cargo noise MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+    elif opt.dataset=="cargo-noise-2-dgl":
+        opt.dataset = "cargo-noise-2"
         print(f'[Loading cargo noise MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
@@ -197,8 +205,12 @@ if __name__ == '__main__':
         opt.dataset = "industrial"
         print(f'[Loading industrial SingleViewDataset]')
         dataset = SingleViewDataset(opt)
-    elif opt.dataset=="industrial-noise":
-        opt.dataset = "industrial-noise"
+    elif opt.dataset=="industrial-noise-1":
+        opt.dataset = "industrial-noise-1"
+        print(f'[Loading industrial noise SingleViewDataset]')
+        dataset = SingleViewDataset(opt)
+    elif opt.dataset=="industrial-noise-2":
+        opt.dataset = "industrial-noise-2"
         print(f'[Loading industrial noise SingleViewDataset]')
         dataset = SingleViewDataset(opt)
     elif opt.dataset=="industrial-dgl":
@@ -206,11 +218,17 @@ if __name__ == '__main__':
         print(f'[Loading industrial MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
-    elif opt.dataset=="industrial-noise-dgl":
-        opt.dataset = "industrial-noise"
+    elif opt.dataset=="industrial-noise-1-dgl":
+        opt.dataset = "industrial-noise-1"
         print(f'[Loading industrial noise MultiViewDGLDataset]')
         dataset = MultiViewDGLDataset(opt)
         print(dataset[0])
+    elif opt.dataset=="industrial-noise-2-dgl":
+        opt.dataset = "industrial-noise-2"
+        print(f'[Loading industrial noise MultiViewDGLDataset]')
+        dataset = MultiViewDGLDataset(opt)
+        print(dataset[0])
+
 
     if opt.model in dgl_models:
         testloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size,collate_fn=_collate_fn)
