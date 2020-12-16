@@ -102,7 +102,7 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses, False)
+            pred_depths = model(images, poses, False)
             if opt.visualization:
                 for i in range(opt.camera_num):
                     image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
@@ -113,7 +113,7 @@ def test(model, dataloader, stats):
                     cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
-            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depth,dataset=opt.dataset)
+            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depths,dataset=opt.dataset)
             abs_rel+=abs_rel_single
             sq_rel+=sq_rel_single
             rmse+=rmse_single
