@@ -46,7 +46,7 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
         valid_target = target_depth > 0
     else:
-        valid_target = target_depth < 100.0
+        valid_target = target_depth < 100.0 and target_depth > 0
     invalid_pred = predicted_depth <= 0
     predicted_depth[invalid_pred] = 1e-8
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
@@ -60,7 +60,7 @@ def compute_Depth_SILog(target_depth, predicted_depth, lambdad=1.0, dataset='air
         if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
             valid_target = target_depth[i] > 0
         else:
-            valid_target = target_depth[i] < 100.0
+            valid_target = target_depth[i] < 100.0 and target_depth[i] > 0
         invalid_pred = predicted_depth[i] <= 0
         num_pixels = torch.sum(valid_target)
         predicted_depth[i][invalid_pred] = 1e-8
@@ -77,7 +77,7 @@ def compute_Metric(gt, pred, dataset='airsim-mrmps-data'):
     if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
         valid_target = gt > 0
     else:
-        valid_target = gt < 100.0
+        valid_target = gt < 100.0 and gt > 0
     invalid_pred = pred <= 0
     pred[invalid_pred] = 1e-8
     rmse = (gt[valid_target] - pred[valid_target]) ** 2
