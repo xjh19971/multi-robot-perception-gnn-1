@@ -1,11 +1,10 @@
 import argparse
+import cv2
 import math
+import numpy
 import os
 import random
 import time
-
-import cv2
-import numpy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,8 +12,9 @@ import torch.optim as optim
 
 import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
-from model import models, blocks
 from dgl import batch
+from model import models, blocks
+
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
@@ -42,6 +42,25 @@ opt.camera_num = len(opt.camera_idx)
 
 def _collate_fn(graph):
     return batch(graph)
+
+def visualization(images, gt, pred, stats):
+    for i in range(opt.camera_num):
+        image = (SingleViewDataset.unormalise_object(images, stats['image_mean'], stats['image_std'], 'image',
+                                                     use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).permute(1,2,0) * 255.).byte()
+        max_depth = stats['max_depth'].numpy()
+        gt = gt[:, i, :, :, :].cpu().numpy().permute(1, 2, 0)
+        gt[gt < 0] = 0
+        gt[gt > max_depth] = max_depth
+        gt = gt / max_depth
+        pred = pred[:, i, :, :, :].cpu().numpy().permute(1, 2, 0)
+        pred[pred < 0] = 0
+        pred[pred > max_depth] = max_depth
+        pred = pred / max_depth
+        heatmap_gt = cv2.applyColorMap((gt * 255.).byte(), cv2.COLORMAP_JET)
+        heatmap = cv2.applyColorMap((pred * 255.).byte(), cv2.COLORMAP_JET)
+        cv2.imwrite('vis/depth/' + str(i) + str(batch_num) + '.png', heatmap)
+        cv2.imwrite('vis/depth_gt/' + str(i) + str(batch_num) + '.png', heatmap_gt)
+        cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -104,13 +123,7 @@ def test(model, dataloader, stats):
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
             pred_depths = model(images, poses, False)
             if opt.visualization:
-                for i in range(opt.camera_num):
-                    image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
-                    heatmap = cv2.applyColorMap(pred_depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
-                    heatmap_gt = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
-                    cv2.imwrite('vis/depth/'+str(i)+str(batch_num)+'.png', heatmap)
-                    cv2.imwrite('vis/depth_gt/'+str(i)+str(batch_num)+'.png', heatmap_gt)
-                    cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
+                visualization(images, depths, pred_depths, stats)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths,pred_depths,dataset=opt.dataset)
@@ -141,13 +154,7 @@ def test_dgl(model, dataloader, stats, opt):
             images = data.ndata['image']
             images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             if opt.visualization:
-                for i in range(opt.camera_num):
-                    image = images[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 3)
-                    heatmap = cv2.applyColorMap(depths[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
-                    heatmap_gt = cv2.applyColorMap(depths_gt[:,i, :, :, :].cpu().numpy().reshape(opt.image_size,opt.image_size, 1), cv2.COLORMAP_JET)
-                    cv2.imwrite('vis/depth/'+str(i)+str(batch_num)+'.png', heatmap)
-                    cv2.imwrite('vis/depth_gt/'+str(i)+str(batch_num)+'.png', heatmap_gt)
-                    cv2.imwrite('vis/image/' + str(i) + str(batch_num) + '.png', image)
+                visualization(images, depths, pred_depths, stats)
             #test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             #test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1

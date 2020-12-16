@@ -640,6 +640,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
                 self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
                 self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+                self.stats['max_depth'] = torch.max(all_depths, (0, 2, 3))
                 torch.save(self.stats, stats_path)
 
         if self.opt.target == 'generate':
