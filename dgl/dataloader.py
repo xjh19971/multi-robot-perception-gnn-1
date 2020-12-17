@@ -14,7 +14,7 @@ from imagenet_c import gaussian_noise, shot_noise, impulse_noise, motion_blur, s
 from dgl import load_graphs, graph, save_graphs
 from dgl.data import DGLDataset
 from dgl.convert import graph as dgl_graph
-from utils import cal_relative_pose, AddPepperNoise
+from utils import cal_relative_pose
 
 class MultiViewDGLDataset(DGLDataset):
     """
@@ -61,7 +61,7 @@ class MultiViewDGLDataset(DGLDataset):
                                         force_reload=force_reload,
                                         verbose=verbose
                                         )
-        
+
 
 
     @property
@@ -640,6 +640,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
                 self.stats['images_std'] = torch.std(all_images, (0, 2, 3))
                 self.stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
                 self.stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+                self.stats['max_depth'] = torch.max(all_depths)
                 torch.save(self.stats, stats_path)
 
         if self.opt.target == 'generate':
@@ -673,6 +674,9 @@ class SingleViewDataset(torch.utils.data.Dataset):
         pose = torch.stack(pose, dim=0)
         depth = torch.stack(depth, dim=0)
         image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
+        image = image.float()
+        pose = pose.float()
+        depth = depth.float()
         # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         return image, pose, depth
 
