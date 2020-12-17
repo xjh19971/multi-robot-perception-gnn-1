@@ -31,6 +31,7 @@ parser.add_argument('-camera_idx', type=str, default="01234")
 parser.add_argument('-apply_noise_idx', type=list, default=None)
 parser.add_argument('-model_file', type=str)
 parser.add_argument('-visualization', action="store_true")
+parser.add_argument('-vis_folder', type=str, default='')
 opt = parser.parse_args()
 opt.camera_idx = list(map(int,list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
@@ -59,9 +60,9 @@ def visualization(images, gts, preds, stats, batch_idx):
         pred = pred / max_depth
         heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
         heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        plt.imsave('vis/depth/' + str(i) + str(batch_idx) + '.png', heatmap, cmap='magma', vmax=max_depth)
-        plt.imsave('vis/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt, cmap='magma', vmax=max_depth)
-        plt.imsave('vis/image/' + str(i) + str(batch_idx) + '.png', image)
+        plt.imsave('vis_'+opt.vis_folder+'/depth/' + str(i) + str(batch_idx) + '.png', heatmap, cmap='magma', vmax=max_depth)
+        plt.imsave('vis_'+opt.vis_folder+'/depth_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt, cmap='magma', vmax=max_depth)
+        plt.imsave('vis_'+opt.vis_folder+'/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -178,10 +179,10 @@ def test_dgl(model, dataloader, stats, opt):
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
     if opt.visualization:
-        os.system('mkdir -p ' + 'vis')
-        os.system('mkdir -p ' + 'vis/depth')
-        os.system('mkdir -p ' + 'vis/depth_gt')
-        os.system('mkdir -p ' + 'vis/image')
+        os.system('mkdir -p ' + 'vis_'+opt.vis_folder)
+        os.system('mkdir -p ' + 'vis_'+opt.vis_folder+'/depth')
+        os.system('mkdir -p ' + 'vis_'+opt.vis_folder+'/depth_gt')
+        os.system('mkdir -p ' + 'vis_'+opt.vis_folder+'/image')
     random.seed(opt.seed)
     np.random.seed(opt.seed)
     torch.manual_seed(opt.seed)
