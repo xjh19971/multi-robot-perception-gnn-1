@@ -107,7 +107,7 @@ def compute_Metric(gt, pred, dataset='airsim-mrmps-data'):
     rmse = (gt[valid_target] - pred[valid_target]) ** 2
     rmse = torch.sqrt(rmse.mean())
 
-    rmse_log = (torch.log(gt[valid_target]) - torch.log(pred[valid_target])) ** 2
+    rmse_log = (torch.log10(gt[valid_target]) - torch.log10(pred[valid_target])) ** 2
     rmse_log = torch.sqrt(rmse_log.mean())
 
     abs_rel = torch.mean(torch.abs(gt[valid_target] - pred[valid_target]) / gt[valid_target])
