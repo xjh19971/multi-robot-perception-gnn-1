@@ -15,10 +15,8 @@ import utils
 from dataloader import MultiViewDGLDataset, SingleViewDataset
 from model import models, blocks
 from dgl import batch
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
-#os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1"
 dgl_models = ["multi_view_dgl"]
 parser = argparse.ArgumentParser()
 # data params
