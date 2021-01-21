@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torchvision.models as models
 
-from model.blocks import TransBlock
+from archived.model.blocks import TransBlock
 
 
 class encoder(nn.Module):

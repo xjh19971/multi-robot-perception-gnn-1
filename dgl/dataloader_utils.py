@@ -151,7 +151,7 @@ def load_raw_data(opt, camera_names, img_transforms):
             poses[i].append(data[j][2])
             severities[i].append(data[j][3])
 
-    return images, depths, poses, severities
+    return images, depths, poses, severities, real_camera_num
 
 
 def load_splits_stats(images, depths, opt):

@@ -6,13 +6,13 @@ import time
 
 import numpy
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
 import utils
-from dataloader import SingleViewDataset
-from model import models, blocks
+from archived.dataloader import SingleViewDataset
+from archived.model import models
+
 #os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
