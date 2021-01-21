@@ -6,15 +6,15 @@ import time
 
 import numpy
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
 import utils
-from dataloader import MultiViewDGLDataset, SingleViewDataset
-from model import models, blocks
+from dataloader import generate_dataset
+from model import models
+
 from dgl import batch
-#os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
+# os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 #################################################
@@ -29,7 +29,6 @@ parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
 parser.add_argument('-lrt', type=float, default=0.005)
-parser.add_argument('-npose', type=int, default=8)
 parser.add_argument('-model_dir', type=str, default="trained_models")
 parser.add_argument('-image_size', type=int, default=256)
 parser.add_argument('-model', type=str, default="single_view")
@@ -41,14 +40,17 @@ parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
 opt = parser.parse_args()
-opt.camera_idx = list(map(int,list(opt.camera_idx)))
+opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
-    opt.apply_noise_idx = list(map(int,list(opt.apply_noise_idx)))
-opt.eval_camera_idx = list(map(int,list(opt.eval_camera_idx)))
+    opt.apply_noise_idx = list(map(int, list(opt.apply_noise_idx)))
+opt.eval_camera_idx = list(map(int, list(opt.eval_camera_idx)))
 opt.camera_num = len(opt.camera_idx)
 opt.eval_camera_num = len(opt.eval_camera_idx)
+
+
 def _collate_fn(graph):
     return batch(graph)
+
 
 def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', dataset='airsim-mrmps-data'):
     target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
@@ -61,25 +63,6 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     predicted_depth[invalid_pred] = 1e-8
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
-
-def compute_Depth_SILog(target_depth, predicted_depth, lambdad=1.0, dataset='airsim-mrmps-data'):
-    target_depth = target_depth.view(-1, 1, opt.image_size, opt.image_size)
-    predicted_depth = predicted_depth.view(-1, 1, opt.image_size, opt.image_size)
-    SILog = 0
-    for i in range(len(target_depth)):
-        if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
-            valid_target = target_depth[i] > 0
-        else:
-            valid_target = target_depth[i] < 100.0
-        invalid_pred = predicted_depth[i] <= 0
-        num_pixels = torch.sum(valid_target)
-        predicted_depth[i][invalid_pred] = 1e-8
-        distance = torch.log(predicted_depth[i][valid_target]) - torch.log(target_depth[i][valid_target])
-        SILog += torch.sum(torch.square(distance)) / num_pixels - torch.square(
-            torch.sum(distance)) * lambdad / torch.square(
-            num_pixels)
-    SILog /= target_depth.size(0)
-    return SILog
 
 
 def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
@@ -130,7 +113,7 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
         data = data.to('cuda:0')
         pred_depth = model(data)
         depths = data.ndata['depth']
-        depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+        depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
@@ -152,14 +135,15 @@ def test_dgl(model, dataloader, stats, opt):
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
             model.eval()
-            data=data.to('cuda:0')
+            data = data.to('cuda:0')
             pred_depth = model(data)
             depths = data.ndata['depth']
-            depths  = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
+
 
 if __name__ == '__main__':
     os.system('mkdir -p ' + opt.model_dir)
@@ -168,87 +152,29 @@ if __name__ == '__main__':
     torch.manual_seed(opt.seed)
     torch.cuda.manual_seed(opt.seed)
 
-    if opt.dataset=="airsim":
-        opt.dataset = "airsim-mrmps-data"
-        print(f'[Loading airsim SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="airsim-noise":
-        opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="airsim-dgl":
-        opt.dataset = "airsim-mrmps-data"
-        print(f'[Loading airsim MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-data", save_dir="airsim-mrmps-process")
-        print(dataset[0])
-    elif opt.dataset=="airsim-noise-dgl":
-        opt.dataset = "airsim-mrmps-noise-data"
-        print(f'[Loading airsim noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="airsim-mrmps-noise-data", save_dir="airsim-mrmps-noise-process")
-        print(dataset[0])
-    elif opt.dataset=="cargo":
-        opt.dataset = "cargo"
-        print(f'[Loading cargo SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="cargo-noise-1":
-        opt.dataset = "cargo-noise-1"
-        print(f'[Loading cargo noise SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="cargo-noise-2":
-        opt.dataset = "cargo-noise-2"
-        print(f'[Loading cargo noise SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="cargo-dgl":
-        opt.dataset = "cargo"
-        print(f'[Loading cargo MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="cargo", save_dir="cargo-process")
-        print(dataset[0])
-    elif opt.dataset=="cargo-noise-dgl":
-        opt.dataset = "cargo-noise-"+str(len(opt.apply_noise_idx))
-        print(f'[Loading cargo noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="cargo-noise-"+str(len(opt.apply_noise_idx)), save_dir="cargo-noise-"+str(len(opt.apply_noise_idx))+"-process")
-        print(dataset[0])
-    elif opt.dataset=="industrial":
-        opt.dataset = "industrial"
-        print(f'[Loading industrial SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="industrial-noise-1":
-        opt.dataset = "industrial-noise-1"
-        print(f'[Loading industrial noise SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="industrial-noise-2":
-        opt.dataset = "industrial-noise-2"
-        print(f'[Loading industrial noise SingleViewDataset]')
-        dataset = SingleViewDataset(opt)
-    elif opt.dataset=="industrial-dgl":
-        opt.dataset = "industrial"
-        print(f'[Loading industrial MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="industrial", save_dir="industrial-process")
-        print(dataset[0])
-    elif opt.dataset=="industrial-noise-dgl":
-        opt.dataset = "industrial-noise-"+str(len(opt.apply_noise_idx))
-        print(f'[Loading industrial noise MultiViewDGLDataset]')
-        dataset = MultiViewDGLDataset(opt, raw_dir="industrial-noise-"+str(len(opt.apply_noise_idx)), save_dir="industrial-noise-"+str(len(opt.apply_noise_idx))+"-process")
-        print(dataset[0])
+    dataset = generate_dataset(opt)
 
-    trainset, valset = torch.utils.data.random_split(dataset,
-                                                     [int(0.90 * len(dataset)),
-                                                      len(dataset) - int(0.90 * len(dataset))])
+    trainset, valset = torch.utils.data.random_split(dataset, [int(0.90 * len(dataset)),
+                                                               len(dataset) - int(0.90 * len(dataset))])
     if opt.model in dgl_models:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.batch_size,collate_fn=_collate_fn)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size,collate_fn=_collate_fn)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True,
+                                                  num_workers=opt.batch_size, collate_fn=_collate_fn)
+        valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False,
+                                                num_workers=opt.batch_size, collate_fn=_collate_fn)
     else:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True, num_workers=opt.batch_size)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False, num_workers=opt.batch_size)
+        trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True,
+                                                  num_workers=opt.batch_size)
+        valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False,
+                                                num_workers=opt.batch_size)
 
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
 
     # load previous checkpoint or create new model
-    if os.path.isfile(opt.model_dir+'/'+mfile):
+    if os.path.isfile(opt.model_dir + '/' + mfile):
         print(f'[loading previous checkpoint: {mfile}]')
-        checkpoint = torch.load(opt.model_dir+'/'+mfile)
+        checkpoint = torch.load(opt.model_dir + '/' + mfile)
         model = checkpoint['model']
         model.cuda()
         optimizer = optim.Adam(model.parameters(), opt.lrt)
@@ -294,19 +220,19 @@ if __name__ == '__main__':
         scheduler.step(val_losses[0])
         if val_losses[0] < min_val_loss:
             torch.save({'model': model,
-                    'optimizer': optimizer.state_dict(),
-                    'n_iter': n_iter,
-                    'scheduler': scheduler.state_dict()}, opt.model_dir+'/best-'+mfile)
+                        'optimizer': optimizer.state_dict(),
+                        'n_iter': n_iter,
+                        'scheduler': scheduler.state_dict()}, opt.model_dir + '/best-' + mfile)
             min_val_loss = val_losses[0]
         n_iter += 1
         model.cpu()
         torch.save({'model': model,
                     'optimizer': optimizer.state_dict(),
                     'n_iter': n_iter,
-                    'scheduler': scheduler.state_dict()}, opt.model_dir+'/'+mfile)
+                    'scheduler': scheduler.state_dict()}, opt.model_dir + '/' + mfile)
         model.cuda()
         log_string = f'step {n_iter} | '
         log_string += utils.format_losses(*train_losses, split='train')
         log_string += utils.format_losses(*val_losses, split='valid')
         print(log_string)
-        utils.log(opt.model_dir+'/'+opt.model_file + '.log', log_string)
+        utils.log(opt.model_dir + '/' + opt.model_file + '.log', log_string)
