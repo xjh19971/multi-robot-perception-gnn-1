@@ -1,7 +1,5 @@
-
-import torch
 import torch.nn as nn
-from model.blocks import BasicBlock, BottleNeck
+from archived.model.blocks import BasicBlock, BottleNeck
 
 
 class ResNet(nn.Module):
