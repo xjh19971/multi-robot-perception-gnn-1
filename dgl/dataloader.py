@@ -77,7 +77,7 @@ class MultiViewDGLDataset(DGLDataset):
         torch.manual_seed(self.opt.seed)
         torch.cuda.manual_seed(self.opt.seed)
 
-        self.images, self.depths, self.poses, self.severities = load_raw_data(self.opt, self.camera_names,
+        self.images, self.depths, self.poses, self.severities, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
         self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
@@ -213,7 +213,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         torch.manual_seed(self.opt.seed)
         torch.cuda.manual_seed(self.opt.seed)
 
-        self.images, self.depths, self.poses, self.severities = load_raw_data(self.opt, self.camera_names,
+        self.images, self.depths, self.poses, self.severities, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
         self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
