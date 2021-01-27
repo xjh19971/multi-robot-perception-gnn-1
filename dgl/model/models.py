@@ -26,6 +26,7 @@ class encoder(nn.Module):
         # (3,256,256) -> (1024, 8, 8)  1/32 of original size
         images = images.view(-1, 3, self.opt.image_size, self.opt.image_size)
         h = self.image_encoder(images)
+        h = h.view(-1, self.opt.feature_dim, self.opt.image_size//32, self.opt.image_size//32)
         return h
 
 
