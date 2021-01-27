@@ -10,12 +10,17 @@ class encoder(nn.Module):
     def __init__(self, opt):
         super(encoder, self).__init__()
         self.opt = opt
-        if self.opt.pretrained:
-            pretrained_model = models.mobilenet_v2(pretrained=True)
-        else:
-            pretrained_model = models.mobilenet_v2()
-        pretrained_model = pretrained_model.features
-        self.image_encoder = pretrained_model
+        feature_model = None
+        if self.opt.backbone == 'mobilenetv2':
+            pretrained_model = models.mobilenet_v2(pretrained=self.opt.pretrained)
+            feature_model = pretrained_model.features
+        elif self.opt.backbone == 'resnet50':
+            pretrained_model = models.resnet50(pretrained=self.opt.pretrained)
+            pretrained_model.fc = nn.Sequential()
+            pretrained_model.avgpool = nn.Sequential()
+            feature_model = pretrained_model
+        assert feature_model is not None
+        self.image_encoder = feature_model
 
     def forward(self, images):
         # (3,256,256) -> (1024, 8, 8)  1/32 of original size
@@ -38,9 +43,9 @@ class decoder(nn.Module):
             TransBlock(self.nfeature_array[1], self.nfeature_array[2], 2),
             TransBlock(self.nfeature_array[2], self.nfeature_array[2], 1),
             TransBlock(self.nfeature_array[2], self.nfeature_array[3], 2),
-            TransBlock(self.nfeature_array[3], 1, 1),
-            nn.Upsample(scale_factor=(4, 4), mode="bicubic"),
-            nn.ReLU()
+            TransBlock(self.nfeature_array[3], self.nfeature_array[3], 1),
+            nn.Conv2d(self.nfeature_array[3], 1, kernel_size=1),
+            nn.Upsample(scale_factor=(4, 4), mode="bicubic")
         )
 
     def forward(self, h):
@@ -49,18 +54,12 @@ class decoder(nn.Module):
         return pred_image
 
 
-
-    def forward(self, h):
-        pred_image = self.image_decoder(h)
-        pred_image = pred_image.view(-1, self.opt.camera_num, 1, self.opt.image_size, self.opt.image_size)
-        return pred_image
-
 class single_view_model(nn.Module):
     def __init__(self, opt):
         super(single_view_model, self).__init__()
         self.opt = opt
         self.encoder = encoder(self.opt)
-        self.decoder = decoder(self.opt, 1280)
+        self.decoder = decoder(self.opt, opt.feature_dim)
 
     def forward(self, image, pose, extract_feature):
         h = self.encoder(image)
@@ -74,7 +73,7 @@ class multi_view_model(nn.Module):
         super(single_view_model, self).__init__()
         self.opt = opt
         self.encoder = encoder(self.opt)
-        self.decoder = decoder(self.opt, 1280)
+        self.decoder = decoder(self.opt, opt.feature_dim)
 
     def forward(self, image, pose, extract_feature):
         h = self.encoder(image)
@@ -87,15 +86,15 @@ class multi_view_model(nn.Module):
 # Film edge -> gamma and beta channel-wise
 # m_ij = gamma * F_i + beta
 # F' = [F_i; mean (m_ij)]
-# decoder 1280*2
+# decoder feature_dim*2
 class edge_encoder(nn.Module):
-    def __init__(self,layers_dim = [1280, 1280]):
+    def __init__(self, layers_dim):
         super(edge_encoder,self).__init__()
         self.layers_dim = layers_dim
         self.layers = nn.Sequential(
             nn.Linear(9,self.layers_dim[0]),
             nn.ReLU(),
-            nn.Linear(layers_dim[0], layers_dim[1]* 2),
+            nn.Linear(layers_dim[0], layers_dim[1] * 2),
             nn.Sigmoid()
         )
     def forward(self, edge):
@@ -109,7 +108,7 @@ class multi_view_dgl_model(nn.Module):
         self.opt = opt
         self.encoder = encoder(self.opt)
         self.gcn = GCN(self.opt)
-        self.decoder = decoder(self.opt, 1280*2)
+        self.decoder = decoder(self.opt, opt.feature_dim*2)
 
     def forward(self, g):
         with g.local_scope():
@@ -135,7 +134,7 @@ class GCN(nn.Module):
     def __init__(self, opt):
         super(GCN,self).__init__()
         self.opt = opt
-        self.edge_encoder = edge_encoder()
+        self.edge_encoder = edge_encoder(layers_dim = [opt.feature_dim,opt.feature_dim])
 
     def forward(self,g):
         with g.local_scope():

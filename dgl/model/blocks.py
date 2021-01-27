@@ -82,7 +82,7 @@ class TransBlock(nn.Module):
         super().__init__()
 
         # residual function
-        if stride==2:
+        if stride == 2:
             self.transconv1 = nn.Sequential(
                 nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1,
                                    output_padding=1, bias=False),

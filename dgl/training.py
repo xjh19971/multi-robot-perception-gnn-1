@@ -39,6 +39,7 @@ parser.add_argument('-multi_gpu', action="store_true")
 parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
+parser.add_argument('-backbone', type=str, default='resnet50')
 opt = parser.parse_args()
 opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
@@ -184,6 +185,11 @@ if __name__ == '__main__':
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_dir + '/' + opt.model_file + '.log', '[resuming from checkpoint]')
     else:
+        if opt.backbone == 'mobilenetv2':
+            opt.feature_dim = 1280
+        elif opt.backbone == 'resnet50':
+            opt.feature_dim = 2048
+        assert hasattr(opt, 'feature_dim')
         if opt.model == "single_view":
             model = models.single_view_model(opt)
         elif opt.model == "multi_view":
