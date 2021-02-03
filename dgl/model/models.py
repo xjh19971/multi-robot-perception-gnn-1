@@ -19,12 +19,14 @@ class encoder(nn.Module):
                 for j in range(len(feature_array[i])):
                     feature_model[i].append(pretrained_model.features[feature_array[i][j]])
         elif self.opt.backbone == 'resnet50':
+            assert self.opt.skip_level == False
             feature_model = nn.ModuleList([nn.ModuleList() for i in range(5)])
             pretrained_model = models.resnet50(pretrained=self.opt.pretrained)
             pretrained_model.fc = nn.Sequential()
             pretrained_model.avgpool = nn.Sequential()
             feature_model[0].append(pretrained_model)
         elif self.opt.backbone == 'resnet18':
+            assert self.opt.skip_level == False
             feature_model = nn.ModuleList([nn.ModuleList() for i in range(5)])
             pretrained_model = models.resnet18(pretrained=self.opt.pretrained)
             pretrained_model.fc = nn.Sequential()
@@ -40,6 +42,8 @@ class encoder(nn.Module):
         for i in range(len(self.image_encoder)):
             for layer in self.image_encoder[i]:
                 images = layer(images)
+            if self.opt.backbone == 'resnet18' or self.opt.backbone == 'resnet50':
+                images = images.view(images.size(0), -1, self.opt.image_size//32, self.opt.image_size//32)
             h.append(images)
         return h
 
