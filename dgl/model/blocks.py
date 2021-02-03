@@ -80,44 +80,52 @@ class TransBlock(nn.Module):
 
     def __init__(self, in_channels, out_channels, stride=1, dropout=0.0, kernel_size=3):
         super().__init__()
-
-        # residual function
         if stride == 2:
             self.transconv1 = nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1,
-                                   output_padding=1, bias=False),
+                nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=1, padding=2, bias=False),
                 nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True))
-        else:
-            self.transconv1 = nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1,
-                                   bias=False),
-                nn.BatchNorm2d(out_channels),
-                nn.ReLU(inplace=True))
-        self.transconv2 = nn.Sequential(
-            nn.ConvTranspose2d(out_channels, out_channels * BasicBlock.expansion, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels * BasicBlock.expansion),
-            nn.Dropout(p=dropout, inplace=True))
-
-        # shortcut
-        self.shortcut = nn.Sequential()
-
-        # the shortcut output dimension is not the same with residual function
-        # use 1*1 convolution to match the dimension
-        if stride != 1:
-            self.shortcut = nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels * BasicBlock.expansion, kernel_size=1, stride=stride,
-                                   bias=False, output_padding=1),
-                nn.BatchNorm2d(out_channels * BasicBlock.expansion)
-            )
-        elif in_channels != BasicBlock.expansion * out_channels:
-            self.shortcut = nn.Sequential(
-                nn.ConvTranspose2d(in_channels, out_channels * BasicBlock.expansion, kernel_size=1, stride=stride,
-                                   bias=False),
-                nn.BatchNorm2d(out_channels * BasicBlock.expansion)
-            )
+            self.Upsample = nn.Upsample(scale_factor=(stride, stride))
+        # # residual function
+        # if stride == 2:
+        #     self.transconv1 = nn.Sequential(
+        #         nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1,
+        #                            output_padding=1, bias=False),
+        #         nn.BatchNorm2d(out_channels),
+        #         nn.ReLU(inplace=True))
+        # else:
+        #     self.transconv1 = nn.Sequential(
+        #         nn.ConvTranspose2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=1,
+        #                            bias=False),
+        #         nn.BatchNorm2d(out_channels),
+        #         nn.ReLU(inplace=True))
+        # self.transconv2 = nn.Sequential(
+        #     nn.ConvTranspose2d(out_channels, out_channels * BasicBlock.expansion, kernel_size=3, padding=1, bias=False),
+        #     nn.BatchNorm2d(out_channels * BasicBlock.expansion),
+        #     nn.Dropout(p=dropout, inplace=True))
+        #
+        # # shortcut
+        # self.shortcut = nn.Sequential()
+        #
+        # # the shortcut output dimension is not the same with residual function
+        # # use 1*1 convolution to match the dimension
+        # if stride != 1:
+        #     self.shortcut = nn.Sequential(
+        #         nn.ConvTranspose2d(in_channels, out_channels * BasicBlock.expansion, kernel_size=1, stride=stride,
+        #                            bias=False, output_padding=1),
+        #         nn.BatchNorm2d(out_channels * BasicBlock.expansion)
+        #     )
+        # elif in_channels != BasicBlock.expansion * out_channels:
+        #     self.shortcut = nn.Sequential(
+        #         nn.ConvTranspose2d(in_channels, out_channels * BasicBlock.expansion, kernel_size=1, stride=stride,
+        #                            bias=False),
+        #         nn.BatchNorm2d(out_channels * BasicBlock.expansion)
+        #     )
 
     def forward(self, x):
-        x_d = self.transconv2(self.transconv1(x))
-        x_p = self.shortcut(x)
-        return nn.ReLU()(x_d + x_p)
+        x = self.transconv1(x)
+        x = self.Upsample(x)
+        return x
+        # x_d = self.transconv2(self.transconv1(x))
+        # x_p = self.shortcut(x)
+        # return nn.ReLU()(x_d + x_p)

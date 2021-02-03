@@ -40,6 +40,7 @@ parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
 parser.add_argument('-backbone', type=str, default='resnet50')
+parser.add_argument('-skip_level', action="store_true")
 opt = parser.parse_args()
 opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
@@ -74,7 +75,7 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         optimizer.zero_grad()
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-        pred_depth = model(images, poses, False)
+        pred_depth = model(images)
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         train_loss += loss
         if not math.isnan(loss.item()):
@@ -97,7 +98,7 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses, False)
+            pred_depth = model(images)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num

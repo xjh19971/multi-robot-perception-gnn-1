@@ -12,26 +12,35 @@ class encoder(nn.Module):
         self.opt = opt
         feature_model = None
         if self.opt.backbone == 'mobilenetv2':
+            feature_model = nn.ModuleList([nn.ModuleList() for i in range(5)])
+            feature_array=[[0,1],[2,3],[4,5,6],[7,8,9,10,11,12,13],[14,15,16,17,18]]
             pretrained_model = models.mobilenet_v2(pretrained=self.opt.pretrained)
-            feature_model = pretrained_model.features
+            for i in range(len(feature_array)):
+                for j in range(len(feature_array[i])):
+                    feature_model[i].append(pretrained_model.features[feature_array[i][j]])
         elif self.opt.backbone == 'resnet50':
+            feature_model = nn.ModuleList([nn.ModuleList() for i in range(5)])
             pretrained_model = models.resnet50(pretrained=self.opt.pretrained)
             pretrained_model.fc = nn.Sequential()
             pretrained_model.avgpool = nn.Sequential()
-            feature_model = pretrained_model
+            feature_model[0].append(pretrained_model)
         elif self.opt.backbone == 'resnet18':
+            feature_model = nn.ModuleList([nn.ModuleList() for i in range(5)])
             pretrained_model = models.resnet18(pretrained=self.opt.pretrained)
             pretrained_model.fc = nn.Sequential()
             pretrained_model.avgpool = nn.Sequential()
-            feature_model = pretrained_model
+            feature_model[0].append(pretrained_model)
         assert feature_model is not None
         self.image_encoder = feature_model
 
     def forward(self, images):
         # (3,256,256) -> (1024, 8, 8)  1/32 of original size
         images = images.view(-1, 3, self.opt.image_size, self.opt.image_size)
-        h = self.image_encoder(images)
-        h = h.view(-1, self.opt.feature_dim, self.opt.image_size//32, self.opt.image_size//32)
+        h = []
+        for i in range(len(self.image_encoder)):
+            for layer in self.image_encoder[i]:
+                images = layer(images)
+            h.append(images)
         return h
 
 
@@ -40,23 +49,31 @@ class decoder(nn.Module):
         super(decoder, self).__init__()
         self.opt = opt
         self.nfeature_image = nfeature_image
-        self.nfeature_array = [self.nfeature_image, self.nfeature_image // 4, self.nfeature_image // 8,
-                               self.nfeature_image // 16]
-        self.image_decoder = nn.Sequential(
-            TransBlock(self.nfeature_array[0], self.nfeature_array[0], 1),
-            TransBlock(self.nfeature_array[0], self.nfeature_array[1], 2),
-            TransBlock(self.nfeature_array[1], self.nfeature_array[1], 1),
-            TransBlock(self.nfeature_array[1], self.nfeature_array[2], 2),
-            TransBlock(self.nfeature_array[2], self.nfeature_array[2], 1),
-            TransBlock(self.nfeature_array[2], self.nfeature_array[3], 2),
-            TransBlock(self.nfeature_array[3], self.nfeature_array[3], 1),
-            nn.Conv2d(self.nfeature_array[3], 1, kernel_size=1),
-            nn.Upsample(scale_factor=(4, 4), mode="bicubic")
+        self.nfeature_array = [self.nfeature_image, self.nfeature_image // 2, self.nfeature_image // 4,
+                               self.nfeature_image // 8, self.nfeature_image // 16, self.nfeature_image // 32]
+        self.image_decoder = nn.ModuleList([
+            TransBlock(self.nfeature_array[0], self.nfeature_array[1], 2, kernel_size=5),
+            TransBlock(self.nfeature_array[1], self.nfeature_array[2], 2, kernel_size=5),
+            TransBlock(self.nfeature_array[2], self.nfeature_array[3], 2, kernel_size=5),
+            TransBlock(self.nfeature_array[3], self.nfeature_array[4], 2, kernel_size=5),
+            TransBlock(self.nfeature_array[4], self.nfeature_array[5], 2, kernel_size=5),
+            nn.Conv2d(self.nfeature_array[5], 1, kernel_size=1)]
         )
+        if self.opt.skip_level:
+            input_feature_array = [96, 32, 24, 16]
+            self.add_conv = nn.ModuleList([
+                nn.Conv2d(input_feature_array[0], self.nfeature_array[1], kernel_size=1),
+                nn.Conv2d(input_feature_array[1], self.nfeature_array[2], kernel_size=1),
+                nn.Conv2d(input_feature_array[2], self.nfeature_array[3], kernel_size=1),
+                nn.Conv2d(input_feature_array[3], self.nfeature_array[4], kernel_size=1)]
+            )
 
-    def forward(self, h):
-        pred_image = self.image_decoder(h)
-        pred_image = pred_image.view(-1, self.opt.camera_num, 1, self.opt.image_size, self.opt.image_size)
+    def forward(self, h, h_list=None):
+        for i in range(len(self.image_decoder)):
+            h = self.image_decoder[i](h)
+            if i <= 3 and h_list is not None and self.opt.skip_level:
+                h = h + self.add_conv[i](h_list[-i-2])
+        pred_image = h.view(-1, self.opt.camera_num, 1, self.opt.image_size, self.opt.image_size)
         return pred_image
 
 
@@ -67,11 +84,14 @@ class single_view_model(nn.Module):
         self.encoder = encoder(self.opt)
         self.decoder = decoder(self.opt, opt.feature_dim)
 
-    def forward(self, image, pose, extract_feature):
-        h = self.encoder(image)
-        if extract_feature:
-            return h
-        pred_image = self.decoder(h)
+    def forward(self, image):
+        if self.opt.skip_level:
+            h_list = self.encoder(image)
+            h = h_list[-1]
+            pred_image = self.decoder(h, h_list)
+        else:
+            h = self.encoder(image)
+            pred_image = self.decoder(h)
         return pred_image
 
 class multi_view_model(nn.Module):
@@ -81,11 +101,14 @@ class multi_view_model(nn.Module):
         self.encoder = encoder(self.opt)
         self.decoder = decoder(self.opt, opt.feature_dim)
 
-    def forward(self, image, pose, extract_feature):
-        h = self.encoder(image)
-        if extract_feature:
-            return h
-        pred_image = self.decoder(h)
+    def forward(self, image):
+        if self.opt.skip_level:
+            h_list = self.encoder(image)
+            h = h_list[-1]
+            pred_image = self.decoder(h, h_list)
+        else:
+            h = self.encoder(image)
+            pred_image = self.decoder(h)
         return pred_image
 
 ## multi_view_dgl_mean
@@ -120,14 +143,21 @@ class multi_view_dgl_model(nn.Module):
         with g.local_scope():
             image = g.ndata['image'] 
             image = image.view(-1, self.opt.camera_num, 3, self.opt.image_size, self.opt.image_size)
-            h = self.encoder(image)
+            if self.opt.skip_level:
+                h_list = self.encoder(image)
+                h = h_list[-1]
+            else:
+                h = self.encoder(image)
             h = h.view(-1, h.size()[-3], h.size()[-2], h.size()[-1])
             g.ndata['image'] = h
             g_h = self.gcn(g)
             ## multi_view_dgl_mean (wo film)
             #h = g_h+ h 
             h = torch.cat((h,g_h),dim=1)
-            pred_image = self.decoder(h)
+            if self.opt.skip_level:
+                pred_image = self.decoder(h, h_list)
+            else:
+                pred_image = self.decoder(h)
             return pred_image
 
 def node_udf(nodes):
