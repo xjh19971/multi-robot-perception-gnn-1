@@ -90,8 +90,8 @@ class single_view_model(nn.Module):
             h = h_list[-1]
             pred_image = self.decoder(h, h_list)
         else:
-            h = self.encoder(image)
-            pred_image = self.decoder(h)
+            h_list = self.encoder(image)
+            pred_image = self.decoder(h_list[-1])
         return pred_image
 
 class multi_view_model(nn.Module):
@@ -143,11 +143,8 @@ class multi_view_dgl_model(nn.Module):
         with g.local_scope():
             image = g.ndata['image'] 
             image = image.view(-1, self.opt.camera_num, 3, self.opt.image_size, self.opt.image_size)
-            if self.opt.skip_level:
-                h_list = self.encoder(image)
-                h = h_list[-1]
-            else:
-                h = self.encoder(image)
+            h_list = self.encoder(image)
+            h = h_list[-1]
             h = h.view(-1, h.size()[-3], h.size()[-2], h.size()[-1])
             g.ndata['image'] = h
             g_h = self.gcn(g)
