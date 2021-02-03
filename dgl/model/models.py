@@ -19,6 +19,11 @@ class encoder(nn.Module):
             pretrained_model.fc = nn.Sequential()
             pretrained_model.avgpool = nn.Sequential()
             feature_model = pretrained_model
+        elif self.opt.backbone == 'resnet18':
+            pretrained_model = models.resnet18(pretrained=self.opt.pretrained)
+            pretrained_model.fc = nn.Sequential()
+            pretrained_model.avgpool = nn.Sequential()
+            feature_model = pretrained_model
         assert feature_model is not None
         self.image_encoder = feature_model
 
