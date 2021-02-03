@@ -189,6 +189,8 @@ if __name__ == '__main__':
             opt.feature_dim = 1280
         elif opt.backbone == 'resnet50':
             opt.feature_dim = 2048
+        elif opt.backbone == 'resnet18':
+            opt.feature_dim = 512
         assert hasattr(opt, 'feature_dim')
         if opt.model == "single_view":
             model = models.single_view_model(opt)
