@@ -2,7 +2,7 @@ import glob
 import math
 import os
 import random
-
+import matplotlib.pyplot as plt
 import cv2
 import numpy
 import numpy as np
@@ -232,7 +232,12 @@ def apply_noise_on_images(image, opt):
     image = image.convert('RGB')
     image = transforms.Resize((opt.image_size, opt.image_size))(image)
     if noise_operation is not None:
-        image = noise_operation(image, severity)
+        # image.save('ori.jpg')
+        image = noise_operation(image, severity).astype(np.uint8)
+        # plt.imsave('noise.jpg',image)
+    else:
+        image = np.array(image).astype(np.uint8)
+        # plt.imsave('ori.jpg', image)
     image = transforms.ToTensor()(image)
     return image, severity
 
