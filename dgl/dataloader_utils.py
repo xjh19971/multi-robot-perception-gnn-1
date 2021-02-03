@@ -233,7 +233,7 @@ def apply_noise_on_images(image, opt):
     image = transforms.Resize((opt.image_size, opt.image_size))(image)
     if noise_operation is not None:
         # image.save('ori.jpg')
-        image = noise_operation(image, severity).astype(np.uint8)
+        image = np.array(noise_operation(image, severity)).astype(np.uint8)
         # plt.imsave('noise.jpg',image)
     else:
         image = np.array(image).astype(np.uint8)

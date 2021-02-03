@@ -40,6 +40,8 @@ parser.add_argument('-epoch', type=int, default=200)
 parser.add_argument('-apply_noise_idx', type=str, default=None)
 parser.add_argument('-model_file', type=str, default=None)
 parser.add_argument('-backbone', type=str, default='resnet50')
+parser.add_argument('-skip_level', action="store_true")
+parser.add_argument('-lambda_edge', type=float, default=1e-0)
 opt = parser.parse_args()
 opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
@@ -65,8 +67,26 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
+def compute_edge_aware_loss(disp, img):
+    """
+    From https://github.com/nianticlabs/monodepth2/
+    Computes the smoothness loss for a disparity image
+    The color image is used for edge-aware smoothness
+    """
+    mean_disp = disp.clone().mean(3, True).mean(4, True)
+    norm_disp = disp / (mean_disp + 1e-7)
+    grad_disp_x = torch.abs(norm_disp[:, :, :, :, :-1] - norm_disp[:, :, :, :, 1:])
+    grad_disp_y = torch.abs(norm_disp[:, :, :, :-1, :] - norm_disp[:, :, :, 1:, :])
 
-def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
+    grad_img_x = torch.mean(torch.abs(img[:, :, :, :, :-1] - img[:, :, :, :, 1:]), 2, keepdim=True)
+    grad_img_y = torch.mean(torch.abs(img[:, :, :, :-1, :] - img[:, :, :, 1:, :]), 2, keepdim=True)
+
+    grad_disp_x *= torch.exp(-grad_img_x)
+    grad_disp_y *= torch.exp(-grad_img_y)
+
+    return grad_disp_x.mean() + grad_disp_y.mean()
+
+def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_edge=0):
     model.train()
     train_loss = 0
     batch_num = 0
@@ -74,17 +94,21 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50):
         optimizer.zero_grad()
         images, poses, depths = data
         images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-        pred_depth = model(images, poses, False)
+        pred_depth = model(images)
+        # loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+        # edge_loss = lambda_edge * compute_edge_aware_loss(pred_depth, images)
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+        edge_loss = compute_edge_aware_loss(pred_depth, images)
+        loss += lambda_edge * edge_loss
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
             optimizer.step()
         batch_num += 1
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tEdge_Loss: {:.6f}'.format(
                 epoch, batch_idx * opt.batch_size, len(dataloader.dataset),
-                       100. * batch_idx / len(dataloader), loss.item()))
+                       100. * batch_idx / len(dataloader), loss.item(), edge_loss.item()))
     avg_train_loss = train_loss / batch_num
     return [avg_train_loss]
 
@@ -97,14 +121,14 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depth = model(images, poses, False)
+            pred_depth = model(images)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
 
 
-def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
+def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, lambda_edge=0):
     model.train()
     train_loss = 0
     batch_num = 0
@@ -115,7 +139,8 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50):
         pred_depth = model(data)
         depths = data.ndata['depth']
         depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset) + \
+               lambda_edge * compute_edge_aware_loss(pred_depth, data.ndata['image'])
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward()
@@ -216,9 +241,9 @@ if __name__ == '__main__':
     for epoch in range(opt.epoch):
         t0 = time.time()
         if opt.model == "single_view":
-            train_losses = train(model, trainloader, optimizer, epoch, dataset.stats)
+            train_losses = train(model, trainloader, optimizer, epoch, dataset.stats, lambda_edge=opt.lambda_edge)
         elif opt.model in dgl_models:
-            train_losses = train_dgl(model, trainloader, optimizer, epoch, dataset.stats, opt)
+            train_losses = train_dgl(model, trainloader, optimizer, epoch, dataset.stats, opt, lambda_edge=opt.lambda_edge)
         t1 = time.time()
         print("Time per epoch= %d s" % (t1 - t0))
         if opt.model == "single_view":
