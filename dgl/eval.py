@@ -98,7 +98,7 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths = data
             images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
-            pred_depths = model(images, poses, False)
+            pred_depths = model(images)
             if opt.visualization:
                 visualization(images, depths, pred_depths, stats, batch_idx)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
