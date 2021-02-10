@@ -67,7 +67,7 @@ def compute_smooth_L1loss(target_depth, predicted_depth, reduction='mean', datas
     loss = F.smooth_l1_loss(predicted_depth[valid_target], target_depth[valid_target], reduction=reduction)
     return loss
 
-def compute_edge_aware_loss(disp, img):
+def compute_edge_aware_loss(disp, img, dgl=False):
     """
     From https://github.com/nianticlabs/monodepth2/
     Computes the smoothness loss for a disparity image
@@ -78,8 +78,12 @@ def compute_edge_aware_loss(disp, img):
     grad_disp_x = torch.abs(norm_disp[:, :, :, :, :-1] - norm_disp[:, :, :, :, 1:])
     grad_disp_y = torch.abs(norm_disp[:, :, :, :-1, :] - norm_disp[:, :, :, 1:, :])
 
-    grad_img_x = torch.mean(torch.abs(img[:, :, :, :, :-1] - img[:, :, :, :, 1:]), 2, keepdim=True)
-    grad_img_y = torch.mean(torch.abs(img[:, :, :, :-1, :] - img[:, :, :, 1:, :]), 2, keepdim=True)
+    if dgl:
+        temp_img = img.clone().view(img.size(0) // 5, 5, 3, img.size(2), img.size(3))
+    else:
+        temp_img = img
+    grad_img_x = torch.mean(torch.abs(temp_img[:, :, :, :, :-1] - temp_img[:, :, :, :, 1:]), 2, keepdim=True)
+    grad_img_y = torch.mean(torch.abs(temp_img[:, :, :, :-1, :] - temp_img[:, :, :, 1:, :]), 2, keepdim=True)
 
     grad_disp_x *= torch.exp(-grad_img_x)
     grad_disp_y *= torch.exp(-grad_img_y)
@@ -139,17 +143,18 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, 
         pred_depth = model(data)
         depths = data.ndata['depth']
         depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset) + \
-               lambda_edge * compute_edge_aware_loss(pred_depth, data.ndata['image'])
+        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+        edge_loss = compute_edge_aware_loss(pred_depth, data.ndata['image'], dgl=True)
+        loss += lambda_edge * edge_loss
         train_loss += loss
         if not math.isnan(loss.item()):
             loss.backward()
             optimizer.step()
         batch_num += 1
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tEdge_Loss: {:.6f}'.format(
                 epoch, batch_idx * opt.batch_size, len(dataloader.dataset),
-                       100. * batch_idx / len(dataloader), loss.item()))
+                       100. * batch_idx / len(dataloader), loss.item(), edge_loss.item()))
     avg_train_loss = train_loss / batch_num
     return [avg_train_loss]
 
