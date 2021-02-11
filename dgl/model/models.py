@@ -140,8 +140,12 @@ class multi_view_dgl_model(nn.Module):
         super(multi_view_dgl_model, self).__init__()
         self.opt = opt
         self.encoder = encoder(self.opt)
-        self.gcn = GCN(self.opt)
-        self.decoder = decoder(self.opt, opt.feature_dim*2)
+        self.gcn1 = GCN(self.opt)
+        self.conv1 = nn.Conv2d(opt.feature_dim * 2, opt.feature_dim, kernel_size=1)
+        self.decoder = decoder(self.opt, opt.feature_dim)
+        if self.opt.multi_gcn:
+            self.gcn2 = GCN(self.opt)
+            self.conv2 = nn.Conv2d(opt.feature_dim * 2, opt.feature_dim, kernel_size=1)
 
     def forward(self, g):
         with g.local_scope():
@@ -151,10 +155,14 @@ class multi_view_dgl_model(nn.Module):
             h = h_list[-1]
             h = h.view(-1, h.size()[-3], h.size()[-2], h.size()[-1])
             g.ndata['image'] = h
-            g_h = self.gcn(g)
-            ## multi_view_dgl_mean (wo film)
-            #h = g_h+ h 
+            g_h = self.gcn1(g)
             h = torch.cat((h,g_h),dim=1)
+            h = self.conv1(h)
+            if self.opt.multi_gcn:
+                g.ndata['image'] = h
+                g_h = self.gcn2(g)
+                h = torch.cat((h,g_h),dim=1)
+                h = self.conv2(h)
             if self.opt.skip_level:
                 pred_image = self.decoder(h, h_list)
             else:
@@ -180,6 +188,6 @@ class GCN(nn.Module):
             g.update_all(edge_udf,node_udf)
             # multi_view_dgl_mean_wofilm
             #g.update_all(fn.copy_u('image','m'),node_udf)
-            return g.ndata['images']
+            return g.ndata['image']
             
 
