@@ -19,7 +19,7 @@ for camera_idx in 01234; do
 						-model "multi_view_dgl"\
 						-pretrained \
 						-apply_noise_idx $apply_noise_idx\
-						-backbone "mobilenetv2"\
+						-backbone "mobilenetv2"
 				done
 			done
 		done
