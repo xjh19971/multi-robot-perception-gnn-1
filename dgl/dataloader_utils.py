@@ -17,10 +17,12 @@ def load_raw_data(opt, camera_names, img_transforms):
         image_path = opt.dataset + '/scene/async_rotate_fog_000_clear/'
         depth_path = opt.dataset + '/depth_encoded/async_rotate_fog_000_clear/'
         pose_path = opt.dataset + '/pose/async_rotate_fog_000_clear/'
+        seg_path = opt.dataset + '/segmentation_decoded/async_rotate_fog_000_clear/'
     else:
         image_path = opt.dataset + '/scene/'
         depth_path = opt.dataset + '/depth_encoded/'
         pose_path = opt.dataset + '/pose/'
+        seg_path = opt.dataset + '/segmentation_decoded/'
     all_data_path = []
     if opt.target == 'test':
         real_camera_num = len(camera_names)
@@ -32,6 +34,7 @@ def load_raw_data(opt, camera_names, img_transforms):
     images = [[] for i in range(real_camera_num)]
     depths = [[] for i in range(real_camera_num)]
     poses = [[] for i in range(real_camera_num)]
+    segs = [[] for i in range(real_camera_num)]
     severities = [[] for i in range(real_camera_num)]
 
     if not os.path.exists(all_data_path[-1]):
@@ -43,10 +46,13 @@ def load_raw_data(opt, camera_names, img_transforms):
             depth_dirs.sort()
             pose_dirs = next(os.walk(pose_path))[1]
             pose_dirs.sort()
+            seg_dirs = next(os.walk(seg_path))[1]
+            seg_dirs.sort()
         else:
             image_dirs = ['']
             depth_dirs = ['']
             pose_dirs = ['']
+            seg_dirs = ['']
         for i in range(opt.camera_num):
             camera_objects = {}
             severity_dict = {}
@@ -110,12 +116,32 @@ def load_raw_data(opt, camera_names, img_transforms):
                             pose = list(map(float, pose))
                             pose = torch.tensor(pose)
                             camera_objects[file_name[-10:-4]].append(pose)
+            for dir_data in seg_dirs:
+                if opt.dataset == 'airsim-mrmps-data' or opt.dataset == 'airsim-mrmps-noise-data':
+                    files_path = seg_path + dir_data + '/' + camera_names[i]
+                else:
+                    files_path = seg_path + camera_names[i]
+                if opt.dataset == 'airsim-mrmps-data' or opt.dataset == 'airsim-mrmps-noise-data':
+                    file_names = glob.glob(f'{files_path}/*.png')
+                else:
+                    file_names = glob.glob(f'{files_path}/*.npy')
+                file_names.sort()
+                for file_name in file_names:
+                    if file_name[-10:-4] in camera_objects:
+                        if opt.dataset == 'airsim-mrmps-data' or opt.dataset == 'airsim-mrmps-noise-data':
+                            seg = cv2.imread(f'{file_name}')
+                        else:
+                            seg = np.load(f'{file_name}')
+                        seg = cv2.resize(seg, (opt.image_size, opt.image_size),
+                                           interpolation=cv2.INTER_NEAREST)
+                        seg = torch.tensor(seg[:,:,0]).view(1, opt.image_size, opt.image_size)
+                        camera_objects[file_name[-10:-4]].append(seg)
 
             consistent_objects = []
             for k, v in severity_dict.items():
                 camera_objects[k].append(v)
             for k, v in camera_objects.items():
-                if len(v) == 5:
+                if len(v) == 6:
                     consistent_objects.append(v)
 
             print(f'[Saving {all_data_path[i]} to disk]')
@@ -130,13 +156,13 @@ def load_raw_data(opt, camera_names, img_transforms):
             data = torch.load(all_data_path[i])
             for j in range(len(data)):
                 if not data[j][0] in consistent_camera_id:
-                    consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3], data[j][4]]]
+                    consistent_camera_id[data[j][0]] = [[data[j][1], data[j][2], data[j][3], data[j][4], data[j][5]]]
                 else:
-                    consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3], data[j][4]])
+                    consistent_camera_id[data[j][0]].append([data[j][1], data[j][2], data[j][3], data[j][4], data[j][5]])
         for k, v in consistent_camera_id.items():
             if len(v) == opt.camera_num:
                 for i in range(opt.camera_num):
-                    consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2], v[i][3]])
+                    consistent_camera_objects[i].append([v[i][0], v[i][1], v[i][2], v[i][3], v[i][4]])
         for i in range(len(all_data_path)):
             torch.save(consistent_camera_objects[i], all_data_path[i])
         del consistent_camera_objects, consistent_camera_id
@@ -149,9 +175,10 @@ def load_raw_data(opt, camera_names, img_transforms):
             images[i].append(data[j][0])
             depths[i].append(data[j][1])
             poses[i].append(data[j][2])
-            severities[i].append(data[j][3])
+            segs[i].append(data[j][3])
+            severities[i].append(data[j][4])
 
-    return images, depths, poses, severities, real_camera_num
+    return images, depths, poses, severities, segs, real_camera_num
 
 
 def load_splits_stats(images, depths, opt):

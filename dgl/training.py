@@ -97,8 +97,8 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_ed
     batch_num = 0
     for batch_idx, data in enumerate(dataloader):
         optimizer.zero_grad()
-        images, poses, depths = data
-        images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
+        images, poses, depths, segs= data
+        images, poses, depths, segs = images.cuda(), poses.cuda(), depths.cuda(), segs.cuda()
         pred_depth = model(images)
         # loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         # edge_loss = lambda_edge * compute_edge_aware_loss(pred_depth, images)
@@ -124,8 +124,8 @@ def test(model, dataloader, stats):
     batch_num = 0
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
-            images, poses, depths = data
-            images, poses, depths = images.cuda(), poses.cuda(), depths.cuda()
+            images, poses, depths, segs = data
+            images, poses, depths, segs = images.cuda(), poses.cuda(), depths.cuda(), segs.cuda()
             pred_depth = model(images)
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
@@ -144,6 +144,8 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, 
         pred_depth = model(data)
         depths = data.ndata['depth']
         depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+        segs = data.ndata['seg']
+        segs = segs.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
         loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
         edge_loss = compute_edge_aware_loss(pred_depth, data.ndata['image'], dgl=True)
         loss += lambda_edge * edge_loss
@@ -171,6 +173,8 @@ def test_dgl(model, dataloader, stats, opt):
             pred_depth = model(data)
             depths = data.ndata['depth']
             depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            segs = data.ndata['seg']
+            segs = segs.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
     avg_test_loss = test_loss / batch_num

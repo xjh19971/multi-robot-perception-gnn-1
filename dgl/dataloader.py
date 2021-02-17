@@ -77,7 +77,7 @@ class MultiViewDGLDataset(DGLDataset):
         torch.manual_seed(self.opt.seed)
         torch.cuda.manual_seed(self.opt.seed)
 
-        self.images, self.depths, self.poses, self.severities, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
+        self.images, self.depths, self.poses, self.severities, self.segs, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
         self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
@@ -99,6 +99,7 @@ class MultiViewDGLDataset(DGLDataset):
             g = graph(edge_list)
             image_set = []
             depth_set = []
+            seg_set = []
             edge_set = []
             feature_set = []
             for cam in range(self.opt.camera_num):
@@ -106,9 +107,11 @@ class MultiViewDGLDataset(DGLDataset):
                     self.normalise_object(self.images[cam][item], self.stats['images_mean'], self.stats['images_std'],
                                           'image'))
                 depth_set.append(self.depths[cam][item])
+                seg_set.append(self.segs[cam][item])
                 feature_set.append(torch.zeros(8, 8, 1280))
             g.ndata['image'] = torch.stack(image_set, dim=0).float()
             g.ndata['depth'] = torch.stack(depth_set, dim=0)
+            g.ndata['seg'] = torch.stack(seg_set, dim=0)
             # g.ndata['feature'] = torch.stack(feature_set, dim=0)
             for i in range(self.opt.camera_num):
                 for j in range(self.opt.camera_num):
@@ -213,7 +216,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         torch.manual_seed(self.opt.seed)
         torch.cuda.manual_seed(self.opt.seed)
 
-        self.images, self.depths, self.poses, self.severities, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
+        self.images, self.depths, self.poses, self.severities, self.segs, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
         self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
@@ -235,19 +238,22 @@ class SingleViewDataset(torch.utils.data.Dataset):
         image = []
         pose = []
         depth = []
+        seg = []
         for i in range(self.real_camera_num):
             image.append(self.images[i][real_index])
             pose.append(self.poses[i][real_index])
             depth.append(self.depths[i][real_index])
+            seg.append(self.segs[i][real_index])
         image = torch.stack(image, dim=0)
         pose = torch.stack(pose, dim=0)
         depth = torch.stack(depth, dim=0)
+        seg = torch.stack(seg, dim=0)
         image = self.normalise_object(image, self.stats['images_mean'], self.stats['images_std'], 'image')
         # depth = self.normalise_object(depth, self.stats['depths_mean'], self.stats['depths_std'], 'depth')
         image = image.float()
         pose = pose.float()
         depth = depth.float()
-        return image, pose, depth
+        return image, pose, depth, seg
 
     @staticmethod
     def normalise_object(objects, mean, std, name):
