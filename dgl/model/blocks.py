@@ -85,7 +85,7 @@ class TransBlock(nn.Module):
                 nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=1, padding=2, bias=False),
                 nn.BatchNorm2d(out_channels),
                 nn.ReLU(inplace=True))
-            self.Upsample = nn.Upsample(scale_factor=(stride, stride), mode='bilinear')
+            self.Upsample = nn.Upsample(scale_factor=(stride, stride), mode='bilinear', align_corners=True)
         # # residual function
         # if stride == 2:
         #     self.transconv1 = nn.Sequential(

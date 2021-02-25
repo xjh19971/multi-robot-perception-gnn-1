@@ -61,7 +61,7 @@ class decoder(nn.Module):
             TransBlock(self.nfeature_array[2], self.nfeature_array[3], 2, kernel_size=5),
             TransBlock(self.nfeature_array[3], self.nfeature_array[4], 2, kernel_size=5),
             TransBlock(self.nfeature_array[4], self.nfeature_array[5], 2, kernel_size=5),
-            nn.Conv2d(self.nfeature_array[5], 1, kernel_size=1)]
+            nn.Conv2d(self.nfeature_array[5], self.opt.output_dim, kernel_size=1)]
         )
         if self.opt.skip_level:
             input_feature_array = [96, 32, 24, 16]
@@ -77,7 +77,7 @@ class decoder(nn.Module):
             h = self.image_decoder[i](h)
             if i <= 3 and h_list is not None and self.opt.skip_level:
                 h = h + self.add_conv[i](h_list[-i-2])
-        pred_image = h.view(-1, self.opt.camera_num, 1, self.opt.image_size, self.opt.image_size)
+        pred_image = h.view(-1, self.opt.camera_num, self.opt.output_dim, self.opt.image_size, self.opt.image_size)
         return pred_image
 
 

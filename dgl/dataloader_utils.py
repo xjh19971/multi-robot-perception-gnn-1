@@ -98,8 +98,7 @@ def load_raw_data(opt, camera_names, img_transforms):
                             depth = depth.view(np.float32)
                         else:
                             depth = np.load(f'{file_name}')
-                        depth = cv2.resize(depth, (opt.image_size, opt.image_size),
-                                           interpolation=cv2.INTER_CUBIC)
+                        depth = cv2.resize(depth, (opt.image_size, opt.image_size), interpolation=cv2.INTER_LINEAR)
                         depth = torch.tensor(depth).view(1, opt.image_size, opt.image_size)
                         camera_objects[file_name[-10:-4]].append(depth)
             for dir_data in pose_dirs:
@@ -132,8 +131,7 @@ def load_raw_data(opt, camera_names, img_transforms):
                             seg = cv2.imread(f'{file_name}')
                         else:
                             seg = np.load(f'{file_name}')
-                        seg = cv2.resize(seg, (opt.image_size, opt.image_size),
-                                           interpolation=cv2.INTER_NEAREST)
+                        seg = cv2.resize(seg, (opt.image_size, opt.image_size), interpolation=cv2.INTER_NEAREST)
                         seg = torch.tensor(seg[:,:,0]).view(1, opt.image_size, opt.image_size)
                         camera_objects[file_name[-10:-4]].append(seg)
 
