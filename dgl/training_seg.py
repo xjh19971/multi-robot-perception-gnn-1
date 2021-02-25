@@ -92,9 +92,8 @@ def compute_edge_aware_loss(disp, img, dgl=False):
     return grad_disp_x.mean() + grad_disp_y.mean()
 
 def compute_cross_entropy2d(target_seg, predicted_seg, reduction='mean', output_dim=1, weight=None):
-    target_seg = target_seg.view(-1)
+    target_seg = target_seg.view(-1, opt.image_size, opt.image_size)
     predicted_seg = predicted_seg.view(-1, output_dim, opt.image_size, opt.image_size)
-    predicted_seg = predicted_seg.transpose(1, 2).transpose(2, 3).contiguous().view(-1, output_dim)
     loss = torch.nn.CrossEntropyLoss(weight=weight, reduction=reduction)(predicted_seg, target_seg)
     return loss
 
@@ -269,7 +268,7 @@ if __name__ == '__main__':
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
-    opt.output_dim = dataset.stats['num_classes'].long()
+    opt.output_dim = int(dataset.stats['num_classes']) + 1
 
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir + '/' + mfile):
