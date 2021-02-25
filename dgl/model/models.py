@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 from torchvision import models
+
 from .blocks import TransBlock
 
 from dgl.nn.pytorch import GraphConv
 import dgl.function as fn
 import dgl.ops as F
+
 class encoder(nn.Module):
     def __init__(self, opt):
         super(encoder, self).__init__()
