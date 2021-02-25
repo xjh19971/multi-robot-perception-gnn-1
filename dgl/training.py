@@ -17,9 +17,7 @@ from dgl import batch
 # os.environ["CUDA_VISIBLE_DEVICES"]="0"
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
-#################################################
-# Train an action-conditional forward model
-#################################################
+
 dgl_models = ["multi_view_dgl"]
 parser = argparse.ArgumentParser()
 # data params
