@@ -110,8 +110,8 @@ class MultiViewDGLDataset(DGLDataset):
                 seg_set.append(self.segs[cam][item])
                 feature_set.append(torch.zeros(8, 8, 1280))
             g.ndata['image'] = torch.stack(image_set, dim=0).float()
-            g.ndata['depth'] = torch.stack(depth_set, dim=0)
-            g.ndata['seg'] = torch.stack(seg_set, dim=0)
+            g.ndata['depth'] = torch.stack(depth_set, dim=0).float()
+            g.ndata['seg'] = torch.stack(seg_set, dim=0).long()
             # g.ndata['feature'] = torch.stack(feature_set, dim=0)
             for i in range(self.opt.camera_num):
                 for j in range(self.opt.camera_num):
@@ -253,6 +253,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         image = image.float()
         pose = pose.float()
         depth = depth.float()
+        seg = seg.long()
         return image, pose, depth, seg
 
     @staticmethod
