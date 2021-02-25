@@ -269,7 +269,8 @@ if __name__ == '__main__':
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
-
+    opt.output_dim = dataset.stats['num_classes']
+    
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir + '/' + mfile):
         print(f'[loading previous checkpoint: {mfile}]')
