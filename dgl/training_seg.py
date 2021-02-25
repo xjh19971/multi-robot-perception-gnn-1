@@ -95,7 +95,7 @@ def compute_cross_entropy2d(target_seg, predicted_seg, reduction='mean', output_
     target_seg = target_seg.view(-1)
     predicted_seg = predicted_seg.view(-1, output_dim, opt.image_size, opt.image_size)
     predicted_seg = predicted_seg.transpose(1, 2).transpose(2, 3).contiguous().view(-1, output_dim)
-    loss = F.cross_entropy(predicted_seg, target_seg, weight=weight, reduction=reduction)
+    loss = torch.nn.CrossEntropyLoss(weight=weight, reduction=reduction)(predicted_seg, target_seg)
     return loss
 
 def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_edge=0, task='seg'):
