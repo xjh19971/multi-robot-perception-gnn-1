@@ -24,7 +24,6 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim')
 parser.add_argument('-task', type=str, default='depth')
-parser.add_argument('-output_dim', type=int, default=1)
 parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
@@ -206,7 +205,7 @@ if __name__ == '__main__':
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
-
+    opt.output_dim = dataset.stats['num_classes']
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir + '/' + mfile):
         print(f'[loading previous checkpoint: {mfile}]')

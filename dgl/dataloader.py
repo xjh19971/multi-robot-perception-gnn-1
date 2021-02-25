@@ -80,7 +80,7 @@ class MultiViewDGLDataset(DGLDataset):
         self.images, self.depths, self.poses, self.severities, self.segs, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
-        self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
+        self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths, self.segs,
                                                                                             self.opt)
 
         print(f'[Number of samples for each camera: {self.n_samples}]')
@@ -219,7 +219,7 @@ class SingleViewDataset(torch.utils.data.Dataset):
         self.images, self.depths, self.poses, self.severities, self.segs, self.real_camera_num = load_raw_data(self.opt, self.camera_names,
                                                                               self.img_transforms)
 
-        self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths,
+        self.n_samples, self.train_val_indx, self.test_indx, self.stats = load_splits_stats(self.images, self.depths, self.segs,
                                                                                             self.opt)
 
         print(f'[Number of samples for each camera: {self.n_samples}]')

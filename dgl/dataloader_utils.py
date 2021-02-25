@@ -179,7 +179,7 @@ def load_raw_data(opt, camera_names, img_transforms):
     return images, depths, poses, severities, segs, real_camera_num
 
 
-def load_splits_stats(images, depths, opt):
+def load_splits_stats(images, depths, segs, opt):
     splits_path = opt.dataset + '/splits.pth'
     if os.path.exists(splits_path):
         print(f'[loading data splits: {splits_path}]')
@@ -217,19 +217,24 @@ def load_splits_stats(images, depths, opt):
             assert opt.camera_num == 5
             stat_images = [[] for i in range(opt.camera_num)]
             stat_depths = [[] for i in range(opt.camera_num)]
+            stat_segs = [[] for i in range(opt.camera_num)]
             for i in range(opt.camera_num):
                 stat_images[i] = torch.stack(images[i], dim=0)
                 stat_depths[i] = torch.stack(depths[i], dim=0)
+                stat_segs[i] = torch.stack(segs[i], dim=0)
             stat_images = torch.stack(stat_images, dim=1)
             stat_depths = torch.stack(stat_depths, dim=1)
+            stat_segs = torch.stack(stat_segs, dim=1)
             stats = dict()
             all_images = stat_images.view(-1, 3, stat_images.size(3), stat_images.size(4))
             all_depths = stat_depths.view(-1, 1, stat_depths.size(3), stat_depths.size(4))
+            all_segs = stat_segs
             # Compute mean and std for each channel
             stats['images_mean'] = torch.mean(all_images, (0, 2, 3))
             stats['images_std'] = torch.std(all_images, (0, 2, 3))
             stats['depths_mean'] = torch.mean(all_depths, (0, 2, 3))
             stats['depths_std'] = torch.std(all_depths, (0, 2, 3))
+            stats['num_classes'] = torch.max(all_segs)
             torch.save(stats, stats_path)
 
     return n_samples, train_val_indx, test_indx, stats
