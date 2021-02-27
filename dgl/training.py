@@ -42,7 +42,9 @@ parser.add_argument('-backbone', type=str, default='resnet50')
 parser.add_argument('-skip_level', action="store_true")
 parser.add_argument('-multi_gcn', action="store_true")
 parser.add_argument('-lambda_edge', type=float, default=1e-0)
+parser.add_argument('gpu_idx', type=str, default="0")
 opt = parser.parse_args()
+os.environ["CUDA_VISIBLE_DEVICES"] = opt.gpu_idx
 opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int, list(opt.apply_noise_idx)))
