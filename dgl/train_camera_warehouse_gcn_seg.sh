@@ -22,7 +22,7 @@ for camera_idx in 01234; do
 						-apply_noise_idx $apply_noise_idx\
 						-backbone "mobilenetv2" \
 						-task seg \
-						-gpu-idx $gpu_idx
+						-gpu_idx $gpu_idx
 				done
 			done
 		done
