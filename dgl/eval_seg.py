@@ -147,13 +147,13 @@ def test(model, dataloader, stats, opt):
             if opt.task=='depth':
                 abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_depth_metric(depths, pred_depths,
                                                                           dataset=opt.dataset)
+                abs_rel += abs_rel_single
+                sq_rel += sq_rel_single
+                rmse += rmse_single
+                rmse_log += rmse_log_single
             elif opt.task == 'seg':
                 mean_iou_single = compute_seg_metric(segs, pred_segs, opt.output_dim)
-            abs_rel += abs_rel_single
-            sq_rel += sq_rel_single
-            rmse += rmse_single
-            rmse_log += rmse_log_single
-            mean_iou += mean_iou_single
+                mean_iou += mean_iou_single
             batch_num += 1
     avg_abs_loss = abs_rel / batch_num
     avg_sq_loss = sq_rel / batch_num
@@ -196,13 +196,13 @@ def test_dgl(model, dataloader, stats, opt):
             if opt.task == 'depth':
                 abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_depth_metric(depths, pred_depth,
                                                                                          dataset=opt.dataset)
+                abs_rel += abs_rel_single
+                sq_rel += sq_rel_single
+                rmse += rmse_single
+                rmse_log += rmse_log_single
             elif opt.task == 'seg':
                 mean_iou_single = compute_seg_metric(segs, pred_seg, opt.output_dim)
-            abs_rel += abs_rel_single
-            sq_rel += sq_rel_single
-            rmse += rmse_single
-            rmse_log += rmse_log_single
-            mean_iou += mean_iou_single
+                mean_iou += mean_iou_single
             batch_num += 1
     avg_abs_loss = abs_rel / batch_num
     avg_sq_loss = sq_rel / batch_num
