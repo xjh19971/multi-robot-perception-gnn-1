@@ -215,6 +215,8 @@ if __name__ == '__main__':
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder)
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/depth')
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/depth_gt')
+        os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/seg')
+        os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/seg_gt')
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/image')
     random.seed(opt.seed)
     np.random.seed(opt.seed)
