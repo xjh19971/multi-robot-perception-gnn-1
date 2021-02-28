@@ -34,9 +34,39 @@ opt.camera_idx = list(map(int, list(opt.camera_idx)))
 if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int, list(opt.apply_noise_idx)))
 opt.camera_num = len(opt.camera_idx)
-
-colors = np.array([(0,0,0),(0,0,255),(0,255,0),(255,0,0),(0,255,255),(255,255,0),(255,0,255),(255,255,255),(128,0,0),(0,128,0),(0,0,128)],
-                  dtype=np.uint8)
+cityscapes_map = np.array([
+       [0.        , 0.        , 0.        ],
+       [0.07843137, 0.07843137, 0.07843137],
+       [0.43529412, 0.29019608, 0.        ],
+       [0.31764706, 0.        , 0.31764706],
+       [0.50196078, 0.25098039, 0.50196078],
+       [0.95686275, 0.1372549 , 0.90980392],
+       [0.98039216, 0.66666667, 0.62745098],
+       [0.90196078, 0.58823529, 0.54901961],
+       [0.2745098 , 0.2745098 , 0.2745098 ],
+       [0.4       , 0.4       , 0.61176471],
+       [0.74509804, 0.6       , 0.6       ],
+       [0.70588235, 0.64705882, 0.70588235],
+       [0.58823529, 0.39215686, 0.39215686],
+       [0.58823529, 0.47058824, 0.35294118],
+       [0.6       , 0.6       , 0.6       ],
+       [0.6       , 0.6       , 0.6       ],
+       [0.98039216, 0.66666667, 0.11764706],
+       [0.8627451 , 0.8627451 , 0.        ],
+       [0.41960784, 0.55686275, 0.1372549 ],
+       [0.59607843, 0.98431373, 0.59607843],
+       [0.2745098 , 0.50980392, 0.70588235],
+       [0.8627451 , 0.07843137, 0.23529412],
+       [1.        , 0.        , 0.        ],
+       [0.        , 0.        , 0.55686275],
+       [0.        , 0.        , 0.2745098 ],
+       [0.        , 0.23529412, 0.39215686],
+       [0.        , 0.        , 0.35294118],
+       [0.        , 0.        , 0.43137255],
+       [0.        , 0.31372549, 0.39215686],
+       [0.        , 0.        , 0.90196078],
+       [0.46666667, 0.04313725, 0.1254902 ],
+       [0.        , 0.        , 0.55686275]])
 def _collate_fn(graph):
     return batch(graph)
 
@@ -81,8 +111,8 @@ def visualization_seg(images, gts, preds, stats, batch_idx, output_dim):
         gt = gts[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         pred = preds[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
         pred = np.argmax(pred, axis=2)
-        segmap_gt = [colors[g] for g in gt]
-        segmap = [colors[p] for p in pred]
+        segmap_gt = np.array([cityscapes_map[g] for g in gt]).squeeze(2)
+        segmap = np.array([cityscapes_map[p] for p in pred])
         plt.imsave('vis_' + opt.vis_folder + '/seg/' + str(i) + str(batch_idx) + '.png', segmap)
         plt.imsave('vis_' + opt.vis_folder + '/seg_gt/' + str(i) + str(batch_idx) + '.png', segmap_gt)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
