@@ -10,7 +10,7 @@ for camera_idx in 01234; do
 					dataset="airsim-noise"
 					model_dir="airsim_seg_models"
 					model="best-model=single_view-bsize="$batch_size"-lrt="$lrt"-camera_idx="$camera_idx"-backbone=mobilenetv2-seed=1-apply_noise_idx="$apply_noise_idx""
-					python -u eval.py \
+					python -u eval_seg.py \
 						-seed $seed \
 						-camera_idx $camera_idx \
 						-dataset $dataset \
