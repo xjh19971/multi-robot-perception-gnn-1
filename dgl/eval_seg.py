@@ -67,6 +67,7 @@ cityscapes_map = np.array([
        [0.        , 0.        , 0.90196078],
        [0.46666667, 0.04313725, 0.1254902 ],
        [0.        , 0.        , 0.55686275]])
+
 def _collate_fn(graph):
     return batch(graph)
 
@@ -100,7 +101,7 @@ def visualization_depth(images, gts, preds, stats, batch_idx, user_max_depth=Non
                    vmax=max_depth)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
-def visualization_seg(images, gts, preds, stats, batch_idx, output_dim):
+def visualization_seg(images, gts, preds, stats, batch_idx):
     if opt.apply_noise_idx is not None:
         vis_camera = 1
     else:
@@ -117,9 +118,7 @@ def visualization_seg(images, gts, preds, stats, batch_idx, output_dim):
         plt.imsave('vis_' + opt.vis_folder + '/seg_gt/' + str(i) + str(batch_idx) + '.png', segmap_gt)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
-def compute_meaniou(pr, gt, threshold, eps=1e-7):
-    pr[pr > threshold] = 1.0
-    pr[pr <= threshold] = 0.0
+def compute_meaniou(pr, gt, eps=1e-7):
     intersection = torch.sum(gt * pr, dim=(2,3))
     union = torch.sum(gt, dim=(2,3)) + torch.sum(pr, dim=(2,3)) - intersection + eps
     iou = (intersection + eps) / union
@@ -145,13 +144,15 @@ def compute_depth_metric(gt, pred, dataset='airsim-mrmps-data'):
     sq_rel = torch.mean(((gt[valid_target] - pred[valid_target]) ** 2) / gt[valid_target])
     return abs_rel, sq_rel, rmse, rmse_log
 
-def compute_seg_metric(gt, pred, output_dim, activation='softmax', threshold=0.5):
+def compute_seg_metric(gt, pred, output_dim, activation=None):
     gt = one_hot(gt, output_dim)
     gt = gt.view(-1, output_dim, opt.image_size, opt.image_size)
     pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
+    pr = torch.argmax(pred, dim=1)
+    pr = one_hot(pr, output_dim)
     if activation == 'softmax':
         pred = torch.nn.Softmax(dim=1)(pred)
-    meaniou = compute_meaniou(pred, gt, threshold)
+    meaniou = compute_meaniou(pr, gt)
     return meaniou
 
 def test(model, dataloader, stats, opt):
@@ -170,7 +171,7 @@ def test(model, dataloader, stats, opt):
                 if opt.task=='depth':
                     visualization_depth(images, depths, pred_depths, stats, batch_idx)
                 elif opt.task == 'seg':
-                    visualization_seg(images, segs, pred_segs, stats, batch_idx, output_dim=opt.output_dim)
+                    visualization_seg(images, segs, pred_segs, stats, batch_idx)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             if opt.task=='depth':
@@ -217,7 +218,7 @@ def test_dgl(model, dataloader, stats, opt):
                 if opt.task=='depth':
                     visualization_depth(images, depths, pred_depth, stats, batch_idx)
                 elif opt.task == 'seg':
-                    visualization_seg(images, segs, pred_seg, stats, batch_idx, output_dim=opt.output_dim)
+                    visualization_seg(images, segs, pred_seg, stats, batch_idx)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
