@@ -35,7 +35,8 @@ if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int, list(opt.apply_noise_idx)))
 opt.camera_num = len(opt.camera_idx)
 
-
+colors = np.array([(0,0,0),(0,0,255),(0,255,0),(255,0,0),(0,255,255),(255,255,0),(255,0,255),(255,255,255),(128,0,0),(0,128,0),(0,0,128)],
+                  dtype=np.uint8)
 def _collate_fn(graph):
     return batch(graph)
 
@@ -69,7 +70,7 @@ def visualization_depth(images, gts, preds, stats, batch_idx, user_max_depth=Non
                    vmax=max_depth)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
-def visualization_seg(images, gts, preds, stats, batch_idx):
+def visualization_seg(images, gts, preds, stats, batch_idx, output_dim):
     if opt.apply_noise_idx is not None:
         vis_camera = 1
     else:
@@ -78,13 +79,12 @@ def visualization_seg(images, gts, preds, stats, batch_idx):
         image = (SingleViewDataset.unormalise_object(images.clone(), stats['images_mean'], stats['images_std'], 'image',
                                                      use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0) * 255.).astype(np.uint8)
         gt = gts[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
-        gt[gt < 0] = 0
         pred = preds[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
-        pred[pred < 0] = 0
-        heatmap_gt = cv2.applyColorMap((gt * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        heatmap = cv2.applyColorMap((pred * 255.).astype(np.uint8), cv2.COLORMAP_JET)
-        plt.imsave('vis_' + opt.vis_folder + '/seg/' + str(i) + str(batch_idx) + '.png', heatmap, cmap='magma')
-        plt.imsave('vis_' + opt.vis_folder + '/seg_gt/' + str(i) + str(batch_idx) + '.png', heatmap_gt, cmap='magma')
+        pred = np.argmax(pred, axis=2)
+        segmap_gt = [colors[g] for g in gt]
+        segmap = [colors[p] for p in pred]
+        plt.imsave('vis_' + opt.vis_folder + '/seg/' + str(i) + str(batch_idx) + '.png', segmap)
+        plt.imsave('vis_' + opt.vis_folder + '/seg_gt/' + str(i) + str(batch_idx) + '.png', segmap_gt)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
 def compute_meaniou(pr, gt, threshold, eps=1e-7):
@@ -93,7 +93,7 @@ def compute_meaniou(pr, gt, threshold, eps=1e-7):
     intersection = torch.sum(gt * pr, dim=(2,3))
     union = torch.sum(gt, dim=(2,3)) + torch.sum(pr, dim=(2,3)) - intersection + eps
     iou = (intersection + eps) / union
-    return torch.mean(iou, dim=1)
+    return torch.mean(iou)
 
 def compute_depth_metric(gt, pred, dataset='airsim-mrmps-data'):
     gt = gt.view(-1, 1, opt.image_size, opt.image_size)
@@ -140,8 +140,7 @@ def test(model, dataloader, stats, opt):
                 if opt.task=='depth':
                     visualization_depth(images, depths, pred_depths, stats, batch_idx)
                 elif opt.task == 'seg':
-                    pass
-                    # visualization_seg(images, segs, pred_segs, stats, batch_idx)
+                    visualization_seg(images, segs, pred_segs, stats, batch_idx, output_dim=opt.output_dim)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
             if opt.task=='depth':
@@ -188,8 +187,7 @@ def test_dgl(model, dataloader, stats, opt):
                 if opt.task=='depth':
                     visualization_depth(images, depths, pred_depth, stats, batch_idx)
                 elif opt.task == 'seg':
-                    pass
-                    # visualization_seg(images, segs, pred_seg, stats, batch_idx)
+                    visualization_seg(images, segs, pred_seg, stats, batch_idx, output_dim=opt.output_dim)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
