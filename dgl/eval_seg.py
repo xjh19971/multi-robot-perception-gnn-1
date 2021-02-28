@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-
+from torch.nn.functional import one_hot
 from dataloader import MultiViewDGLDataset, SingleViewDataset, generate_dataset
 from dgl import batch
 
@@ -116,6 +116,7 @@ def compute_depth_metric(gt, pred, dataset='airsim-mrmps-data'):
     return abs_rel, sq_rel, rmse, rmse_log
 
 def compute_seg_metric(gt, pred, output_dim, activation='softmax', threshold=0.5):
+    gt = one_hot(gt, output_dim)
     gt = gt.view(-1, output_dim, opt.image_size, opt.image_size)
     pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
     if activation == 'softmax':
