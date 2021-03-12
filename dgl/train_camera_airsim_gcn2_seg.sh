@@ -2,7 +2,7 @@
 # Allows named arguments
 set -k
 gpu_idx=0
-python -u training.py -seed 1 -camera_idx 01234 -dataset airsim-dgl -model_dir airsim_seg_models -model_file "model=multi_view_gcn_2-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -model multi_view_dgl -pretrained -backbone mobilenetv2 -task seg -gpu_idx $gpu_idx -multi_gcn
+python -u training.py -seed 1 -camera_idx 01234 -dataset airsim-dgl -model_dir airsim_seg_models -model_file "model=multi_view_gcn_2-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -model multi_view_dgl -pretrained -backbone mobilenetv2 -task seg -gpu_idx $gpu_idx -multi_gcn -compress_gcn
 for camera_idx in 01234; do
 	for lrt in 0.005; do
 		for batch_size in 8; do
@@ -23,7 +23,8 @@ for camera_idx in 01234; do
 						-backbone "mobilenetv2" \
 						-task seg \
 						-gpu_idx $gpu_idx \
-						-multi_gcn
+						-multi_gcn \
+						-compress_gcn
 				done
 			done
 		done
