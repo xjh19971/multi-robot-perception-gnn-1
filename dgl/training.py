@@ -259,14 +259,14 @@ if __name__ == '__main__':
                                                                len(dataset) - int(0.90 * len(dataset))])
     if opt.model in dgl_models:
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True,
-                                                  num_workers=opt.batch_size, collate_fn=_collate_fn)
+                                                collate_fn=_collate_fn)
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False,
-                                                num_workers=opt.batch_size, collate_fn=_collate_fn)
+                                                collate_fn=_collate_fn)
     else:
         trainloader = torch.utils.data.DataLoader(trainset, batch_size=opt.batch_size, shuffle=True,
-                                                  num_workers=opt.batch_size)
+                                                 )
         valloader = torch.utils.data.DataLoader(valset, batch_size=opt.batch_size, shuffle=False,
-                                                num_workers=opt.batch_size)
+                                                )
 
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
