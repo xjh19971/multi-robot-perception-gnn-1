@@ -143,9 +143,13 @@ class multi_view_dgl_model(nn.Module):
         self.opt = opt
         self.encoder = encoder(self.opt)
         self.gcn1 = GCN(self.opt)
-        self.conv1 = nn.Conv2d(opt.feature_dim * 2, opt.feature_dim, kernel_size=1)
-        self.decoder = decoder(self.opt, opt.feature_dim)
+        if self.opt.compress_gcn:
+            self.conv1 = nn.Conv2d(opt.feature_dim * 2, opt.feature_dim, kernel_size=1)
+            self.decoder = decoder(self.opt, opt.feature_dim)
+        else:
+            self.decoder = decoder(self.opt, opt.feature_dim * 2)
         if self.opt.multi_gcn:
+            assert self.opt.compress_gcn
             self.gcn2 = GCN(self.opt)
             self.conv2 = nn.Conv2d(opt.feature_dim * 2, opt.feature_dim, kernel_size=1)
 

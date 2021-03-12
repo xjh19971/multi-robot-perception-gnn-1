@@ -24,6 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim')
 parser.add_argument('-task', type=str, default='depth')
+parser.add_argument('-output_dim', type=int, default=10)
 parser.add_argument('-target', type=str, default='train')
 parser.add_argument('-batch_size', type=int, default=8)
 parser.add_argument('-dropout', type=float, default=0.0, help='regular dropout')
@@ -41,6 +42,7 @@ parser.add_argument('-model_file', type=str, default=None)
 parser.add_argument('-backbone', type=str, default='resnet50')
 parser.add_argument('-skip_level', action="store_true")
 parser.add_argument('-multi_gcn', action="store_true")
+parser.add_argument('-compress_gcn', action="store_true")
 parser.add_argument('-lambda_edge', type=float, default=1e-0)
 parser.add_argument('-gpu_idx', type=str, default="0")
 opt = parser.parse_args()
@@ -92,7 +94,13 @@ def compute_edge_aware_loss(disp, img, dgl=False):
 
     return grad_disp_x.mean() + grad_disp_y.mean()
 
-def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_edge=0):
+def compute_cross_entropy2d(target_seg, predicted_seg, reduction='mean', output_dim=1, weight=None):
+    target_seg = target_seg.view(-1, opt.image_size, opt.image_size)
+    predicted_seg = predicted_seg.view(-1, output_dim, opt.image_size, opt.image_size)
+    loss = torch.nn.CrossEntropyLoss(weight=weight, reduction=reduction)(predicted_seg, target_seg)
+    return loss
+
+def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_edge=0, task='seg'):
     model.train()
     train_loss = 0
     batch_num = 0
@@ -100,26 +108,38 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_ed
         optimizer.zero_grad()
         images, poses, depths, segs= data
         images, poses, depths, segs = images.cuda(), poses.cuda(), depths.cuda(), segs.cuda()
-        pred_depth = model(images)
-        # loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
-        # edge_loss = lambda_edge * compute_edge_aware_loss(pred_depth, images)
-        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
-        edge_loss = compute_edge_aware_loss(pred_depth, images)
-        loss += lambda_edge * edge_loss
+
+        pred_depth = None
+        pred_seg = None
+        if task=='depth':
+            pred_depth = model(images)
+        elif task=='seg':
+            pred_seg = model(images)
+
+        loss = 0
+        if pred_depth is not None:
+            loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+            edge_loss = compute_edge_aware_loss(pred_depth, images)
+            loss += lambda_edge * edge_loss
+        if pred_seg is not None:
+            loss += compute_cross_entropy2d(segs, pred_seg, output_dim=opt.output_dim)
+
         train_loss += loss
+
         if not math.isnan(loss.item()):
             loss.backward(retain_graph=False)
             optimizer.step()
         batch_num += 1
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tEdge_Loss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * opt.batch_size, len(dataloader.dataset),
-                       100. * batch_idx / len(dataloader), loss.item(), edge_loss.item()))
+                       100. * batch_idx / len(dataloader), loss.item()))
+
     avg_train_loss = train_loss / batch_num
     return [avg_train_loss]
 
 
-def test(model, dataloader, stats):
+def test(model, dataloader, stats, lambda_edge=0, task='seg'):
     model.eval()
     test_loss = 0
     batch_num = 0
@@ -127,14 +147,30 @@ def test(model, dataloader, stats):
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths, segs = data
             images, poses, depths, segs = images.cuda(), poses.cuda(), depths.cuda(), segs.cuda()
-            pred_depth = model(images)
-            test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+
+            pred_depth = None
+            pred_seg = None
+            if task == 'depth':
+                pred_depth = model(images)
+            elif task == 'seg':
+                pred_seg = model(images)
+
+            loss = 0
+            if pred_depth is not None:
+                loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+                edge_loss = compute_edge_aware_loss(pred_depth, images)
+                loss += lambda_edge * edge_loss
+            if pred_seg is not None:
+                loss += compute_cross_entropy2d(segs, pred_seg, output_dim=opt.output_dim)
+
+            test_loss += loss
             batch_num += 1
+
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
 
 
-def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, lambda_edge=0):
+def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, lambda_edge=0, task='seg'):
     model.train()
     train_loss = 0
     batch_num = 0
@@ -142,28 +178,42 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, 
         optimizer.zero_grad()
         model.train()
         data = data.to('cuda:0')
-        pred_depth = model(data)
         depths = data.ndata['depth']
         depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
         segs = data.ndata['seg']
         segs = segs.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-        loss = compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
-        edge_loss = compute_edge_aware_loss(pred_depth, data.ndata['image'], dgl=True)
-        loss += lambda_edge * edge_loss
+
+        pred_depth = None
+        pred_seg = None
+        if task == 'depth':
+            pred_depth = model(data)
+        elif task == 'seg':
+            pred_seg = model(data)
+
+        loss = 0
+        if pred_depth is not None:
+            loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+            edge_loss = compute_edge_aware_loss(pred_depth, data.ndata['image'], dgl=True)
+            loss += lambda_edge * edge_loss
+        if pred_seg is not None:
+            loss += compute_cross_entropy2d(segs, pred_seg, output_dim=opt.output_dim)
+
         train_loss += loss
+
         if not math.isnan(loss.item()):
-            loss.backward()
+            loss.backward(retain_graph=False)
             optimizer.step()
         batch_num += 1
         if batch_idx % log_interval == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}\tEdge_Loss: {:.6f}'.format(
+            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * opt.batch_size, len(dataloader.dataset),
-                       100. * batch_idx / len(dataloader), loss.item(), edge_loss.item()))
+                       100. * batch_idx / len(dataloader), loss.item()))
+
     avg_train_loss = train_loss / batch_num
     return [avg_train_loss]
 
 
-def test_dgl(model, dataloader, stats, opt):
+def test_dgl(model, dataloader, stats, opt, lambda_edge=0, task='seg'):
     model.eval()
     test_loss = 0
     batch_num = 0
@@ -171,12 +221,26 @@ def test_dgl(model, dataloader, stats, opt):
         for batch_idx, data in enumerate(dataloader):
             model.eval()
             data = data.to('cuda:0')
-            pred_depth = model(data)
             depths = data.ndata['depth']
             depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             segs = data.ndata['seg']
             segs = segs.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-            test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+            pred_depth = None
+            pred_seg = None
+            if task == 'depth':
+                pred_depth = model(data)
+            elif task == 'seg':
+                pred_seg = model(data)
+
+            loss = 0
+            if pred_depth is not None:
+                loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
+                edge_loss = compute_edge_aware_loss(pred_depth, data.ndata['image'], dgl=True)
+                loss += lambda_edge * edge_loss
+            if pred_seg is not None:
+                loss += compute_cross_entropy2d(segs, pred_seg, output_dim=opt.output_dim)
+
+            test_loss += loss
             batch_num += 1
     avg_test_loss = test_loss / batch_num
     return [avg_test_loss]
@@ -207,6 +271,8 @@ if __name__ == '__main__':
     # define model file name
     print(f'[will save model as: {opt.model_file}]')
     mfile = opt.model_file + '.model'
+    if opt.task == 'seg':
+        opt.output_dim = int(dataset.stats['num_classes']) + 1
 
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir + '/' + mfile):
@@ -221,6 +287,7 @@ if __name__ == '__main__':
         n_iter = checkpoint['n_iter']
         utils.log(opt.model_dir + '/' + opt.model_file + '.log', '[resuming from checkpoint]')
     else:
+        model = None
         if opt.backbone == 'mobilenetv2':
             opt.feature_dim = 1280
         elif opt.backbone == 'resnet50':
@@ -234,6 +301,7 @@ if __name__ == '__main__':
             model = models.multi_view_model(opt)
         elif opt.model == "multi_view_dgl":
             model = models.multi_view_dgl_model(opt)
+        assert model is not None
 
         optimizer = optim.Adam(model.parameters(), opt.lrt)
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=40)

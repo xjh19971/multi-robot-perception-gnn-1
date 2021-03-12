@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 import torch
 from matplotlib import pyplot as plt
-
+from torch.nn.functional import one_hot
 from dataloader import MultiViewDGLDataset, SingleViewDataset, generate_dataset
 from dgl import batch
 
@@ -18,7 +18,7 @@ parser = argparse.ArgumentParser()
 # data params
 parser.add_argument('-seed', type=int, default=1)
 parser.add_argument('-dataset', type=str, default='airsim')
-parser.add_argument('-task', type=str, default='depth')
+parser.add_argument('-task', type=str, default='seg')
 parser.add_argument('-target', type=str, default='test')
 parser.add_argument('-batch_size', type=int, default=1)
 parser.add_argument('-model_dir', type=str, default="trained_models")
@@ -35,12 +35,27 @@ if opt.apply_noise_idx is not None:
     opt.apply_noise_idx = list(map(int, list(opt.apply_noise_idx)))
 opt.camera_num = len(opt.camera_idx)
 
+cityscapes_map = np.array([
+       [0.        , 0.        , 0.        ],
+       [0.07843137, 0.07843137, 0.07843137],
+       [0.43529412, 0.29019608, 0.        ],
+       [0.31764706, 0.        , 0.31764706],
+       [0.50196078, 0.25098039, 0.50196078],
+       [0.95686275, 0.1372549 , 0.90980392],
+       [0.98039216, 0.66666667, 0.62745098],
+       [0.90196078, 0.58823529, 0.54901961],
+       [0.2745098 , 0.2745098 , 0.2745098 ],
+       [0.4       , 0.4       , 0.61176471],
+       [0.74509804, 0.6       , 0.6       ],
+       [0.70588235, 0.64705882, 0.70588235],
+       [0.58823529, 0.39215686, 0.39215686],
+       [0.58823529, 0.47058824, 0.35294118]])
 
 def _collate_fn(graph):
     return batch(graph)
 
 
-def visualization(images, gts, preds, stats, batch_idx, user_max_depth=None):
+def visualization_depth(images, gts, preds, stats, batch_idx, user_max_depth=None):
     if opt.apply_noise_idx is not None:
         vis_camera = 1
     else:
@@ -69,8 +84,30 @@ def visualization(images, gts, preds, stats, batch_idx, user_max_depth=None):
                    vmax=max_depth)
         plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
+def visualization_seg(images, gts, preds, stats, batch_idx):
+    if opt.apply_noise_idx is not None:
+        vis_camera = 1
+    else:
+        vis_camera = opt.camera_num
+    for i in range(vis_camera):
+        image = (SingleViewDataset.unormalise_object(images.clone(), stats['images_mean'], stats['images_std'], 'image',
+                                                     use_cuda=True)[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0) * 255.).astype(np.uint8)
+        gt = gts[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        pred = preds[:, i, :, :, :].cpu().numpy().squeeze(0).transpose(1, 2, 0)
+        pred = np.argmax(pred, axis=2)
+        segmap_gt = np.array([cityscapes_map[g] for g in gt]).squeeze(2)
+        segmap = np.array([cityscapes_map[p] for p in pred])
+        plt.imsave('vis_' + opt.vis_folder + '/seg/' + str(i) + str(batch_idx) + '.png', segmap)
+        plt.imsave('vis_' + opt.vis_folder + '/seg_gt/' + str(i) + str(batch_idx) + '.png', segmap_gt)
+        plt.imsave('vis_' + opt.vis_folder + '/image/' + str(i) + str(batch_idx) + '.png', image)
 
-def compute_Metric(gt, pred, dataset='airsim-mrmps-data'):
+def compute_meaniou(pr, gt, eps=1e-7):
+    intersection = torch.sum(gt * pr, dim=(2,3))
+    union = torch.sum(gt, dim=(2,3)) + torch.sum(pr, dim=(2,3)) - intersection
+    iou = (intersection + eps) / union
+    return torch.mean(iou)
+
+def compute_depth_metric(gt, pred, dataset='airsim-mrmps-data'):
     gt = gt.view(-1, 1, opt.image_size, opt.image_size)
     pred = pred.view(-1, 1, opt.image_size, opt.image_size)
     if dataset == 'airsim-mrmps-data' or dataset == 'airsim-mrmps-noise-data':
@@ -90,38 +127,58 @@ def compute_Metric(gt, pred, dataset='airsim-mrmps-data'):
     sq_rel = torch.mean(((gt[valid_target] - pred[valid_target]) ** 2) / gt[valid_target])
     return abs_rel, sq_rel, rmse, rmse_log
 
+def compute_seg_metric(gt, pred, output_dim, activation=None):
+    gt = one_hot(gt, output_dim).squeeze(2).permute(0,1,4,2,3)
+    gt = gt.view(-1, output_dim, opt.image_size, opt.image_size)
+    pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
+    if activation == 'softmax':
+        pred = torch.nn.Softmax(dim=1)(pred)
+    pr = torch.argmax(pred, dim=1).squeeze(2)
+    pr = one_hot(pr, output_dim).permute(0,3,1,2)
+    meaniou = compute_meaniou(pr, gt)
+    return meaniou
 
-def test(model, dataloader, stats):
+def test(model, dataloader, stats, opt):
     model.eval()
-    abs_rel, sq_rel, rmse, rmse_log = 0, 0, 0, 0
+    abs_rel, sq_rel, rmse, rmse_log, mean_iou = 0, 0, 0, 0, 0
     batch_num = 0
     with torch.no_grad():
         for batch_idx, data in enumerate(dataloader):
             images, poses, depths, segs = data
             images, poses, depths, segs = images.cuda(), poses.cuda(), depths.cuda(), segs.cuda()
-            pred_depths = model(images)
+            if opt.task == 'depth':
+                pred_depths = model(images)
+            elif opt.task == 'seg':
+                pred_segs = model(images)
             if opt.visualization:
-                visualization(images, depths, pred_depths, stats, batch_idx)
+                if opt.task=='depth':
+                    visualization_depth(images, depths, pred_depths, stats, batch_idx)
+                elif opt.task == 'seg':
+                    visualization_seg(images, segs, pred_segs, stats, batch_idx)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             # test_loss += compute_Depth_SILog(depths, pred_depth, dataset=opt.dataset)
-            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths, pred_depths,
-                                                                                         dataset=opt.dataset)
-            abs_rel += abs_rel_single
-            sq_rel += sq_rel_single
-            rmse += rmse_single
-            rmse_log += rmse_log_single
+            if opt.task=='depth':
+                abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_depth_metric(depths, pred_depths,
+                                                                          dataset=opt.dataset)
+                abs_rel += abs_rel_single
+                sq_rel += sq_rel_single
+                rmse += rmse_single
+                rmse_log += rmse_log_single
+            elif opt.task == 'seg':
+                mean_iou_single = compute_seg_metric(segs, pred_segs, opt.output_dim)
+                mean_iou += mean_iou_single
             batch_num += 1
     avg_abs_loss = abs_rel / batch_num
     avg_sq_loss = sq_rel / batch_num
     avg_rmse_loss = rmse / batch_num
     avg_rmse_log_loss = rmse_log / batch_num
-
-    return [avg_abs_loss, avg_sq_loss, avg_rmse_loss, avg_rmse_log_loss]
+    avg_mean_iou = mean_iou / batch_num
+    return [avg_abs_loss, avg_sq_loss, avg_rmse_loss, avg_rmse_log_loss, avg_mean_iou]
 
 
 def test_dgl(model, dataloader, stats, opt):
     model.eval()
-    abs_rel, sq_rel, rmse, rmse_log = 0, 0, 0, 0
+    abs_rel, sq_rel, rmse, rmse_log, mean_iou = 0, 0, 0, 0, 0
     test_loss = 0
     batch_num = 0
     with torch.no_grad():
@@ -132,30 +189,39 @@ def test_dgl(model, dataloader, stats, opt):
             images = images.view((-1, opt.camera_num, 3, opt.image_size, opt.image_size))
             depths = data.ndata['depth']
             depths = depths.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
-            pred_depth = model(data)
-            pred_depth = pred_depth.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
             segs = data.ndata['seg']
             segs = segs.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            if opt.task == 'depth':
+                pred_depth = model(data)
+                pred_depth = pred_depth.view((-1, opt.camera_num, 1, opt.image_size, opt.image_size))
+            elif opt.task == 'seg':
+                pred_seg = model(data)
+                pred_seg = pred_seg.view((-1, opt.camera_num, opt.output_dim, opt.image_size, opt.image_size))
             if opt.visualization:
-                visualization(images, depths, pred_depth, stats, batch_idx)
+                if opt.task=='depth':
+                    visualization_depth(images, depths, pred_depth, stats, batch_idx)
+                elif opt.task == 'seg':
+                    visualization_seg(images, segs, pred_seg, stats, batch_idx)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
             batch_num += 1
-            abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_Metric(depths, pred_depth,
+            if opt.task == 'depth':
+                abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_depth_metric(depths, pred_depth,
                                                                                          dataset=opt.dataset)
-            abs_rel += abs_rel_single
-            sq_rel += sq_rel_single
-            rmse += rmse_single
-            rmse_log += rmse_log_single
+                abs_rel += abs_rel_single
+                sq_rel += sq_rel_single
+                rmse += rmse_single
+                rmse_log += rmse_log_single
+            elif opt.task == 'seg':
+                mean_iou_single = compute_seg_metric(segs, pred_seg, opt.output_dim)
+                mean_iou += mean_iou_single
             batch_num += 1
     avg_abs_loss = abs_rel / batch_num
     avg_sq_loss = sq_rel / batch_num
     avg_rmse_loss = rmse / batch_num
     avg_rmse_log_loss = rmse_log / batch_num
-
-    return [avg_abs_loss, avg_sq_loss, avg_rmse_loss, avg_rmse_log_loss]
-    # avg_test_loss = test_loss / batch_num
-    # return [avg_test_loss]
+    avg_mean_iou = mean_iou / batch_num
+    return [avg_abs_loss, avg_sq_loss, avg_rmse_loss, avg_rmse_log_loss, avg_mean_iou]
 
 
 if __name__ == '__main__':
@@ -163,6 +229,8 @@ if __name__ == '__main__':
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder)
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/depth')
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/depth_gt')
+        os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/seg')
+        os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/seg_gt')
         os.system('mkdir -p ' + 'vis_' + opt.vis_folder + '/image')
     random.seed(opt.seed)
     np.random.seed(opt.seed)
@@ -180,6 +248,7 @@ if __name__ == '__main__':
     print(f'[will load model: {opt.model_file}]')
     print(f'[testing camera idx: {opt.camera_idx}]')
     mfile = opt.model_file + '.model'
+    opt.output_dim = int(dataset.stats['num_classes']) + 1
     checkpoint = torch.load(opt.model_dir + '/' + mfile)
     model = checkpoint['model']
     # if opt.model in ["single_view", "multi_view"]:
@@ -192,7 +261,7 @@ if __name__ == '__main__':
     print('[Batch size]: ', opt.batch_size)
     t0 = time.time()
     if opt.model == "single_view":
-        test_losses = test(model, testloader, dataset.stats)
+        test_losses = test(model, testloader, dataset.stats, opt)
     elif opt.model in dgl_models:
         test_losses = test_dgl(model, testloader, dataset.stats, opt)
     t1 = time.time()
