@@ -163,7 +163,8 @@ class multi_view_dgl_model(nn.Module):
             g.ndata['image'] = h
             g_h = self.gcn1(g)
             h = torch.cat((h,g_h),dim=1)
-            h = self.conv1(h)
+            if self.opt.compress_gcn:
+                h = self.conv1(h)
             if self.opt.multi_gcn:
                 g.ndata['image'] = h
                 g_h = self.gcn2(g)
