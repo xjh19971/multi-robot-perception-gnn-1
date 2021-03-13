@@ -26,10 +26,13 @@ def log(fname, s):
     f.close()
 
 
-def format_losses(loss, split='train'):
+def format_losses(loss, split='train', task='depth'):
     log_string = ' '
     log_string += f'{split} loss ['
-    log_string += f'depth: {loss:.5f}'
+    if task == 'depth':
+        log_string += f'depth: {loss:.5f}'
+    elif task == 'seg':
+        log_string += f'seg: {loss:.5f}'
     log_string += ']'
     return log_string
 

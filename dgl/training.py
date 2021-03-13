@@ -345,7 +345,7 @@ if __name__ == '__main__':
                     'scheduler': scheduler.state_dict()}, opt.model_dir + '/' + mfile)
         model.cuda()
         log_string = f'step {n_iter} | '
-        log_string += utils.format_losses(*train_losses, split='train')
-        log_string += utils.format_losses(*val_losses, split='valid')
+        log_string += utils.format_losses(*train_losses, split='train', task=opt.task)
+        log_string += utils.format_losses(*val_losses, split='valid', task=opt.task)
         print(log_string)
         utils.log(opt.model_dir + '/' + opt.model_file + '.log', log_string)
