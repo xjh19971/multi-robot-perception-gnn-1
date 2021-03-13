@@ -327,9 +327,9 @@ if __name__ == '__main__':
         t1 = time.time()
         print("Time per epoch= %d s" % (t1 - t0))
         if opt.model == "single_view":
-            val_losses = test(model, valloader, dataset.stats)
+            val_losses = test(model, valloader, dataset.stats, task=opt.task)
         elif opt.model in dgl_models:
-            val_losses = test_dgl(model, valloader, dataset.stats, opt)
+            val_losses = test_dgl(model, valloader, dataset.stats, opt, task=opt.task)
         scheduler.step(val_losses[0])
         if val_losses[0] < min_val_loss:
             torch.save({'model': model,
