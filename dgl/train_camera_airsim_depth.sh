@@ -19,11 +19,12 @@ for camera_idx in 01234; do
 						-pretrained \
 						-apply_noise_idx $apply_noise_idx\
 						-backbone "mobilenetv2" \
+						-task depth \
 						-gpu_idx $gpu_idx
 				done
 			done
 		done
 	done
 done
-python -u training.py -seed 1 -camera_idx 01234 -dataset airsim -model_dir airsim_depth_models -model_file "model=single_view-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -pretrained -backbone mobilenetv2 -gpu_idx $gpu_idx
+python -u training.py -seed 1 -camera_idx 01234 -dataset airsim -model_dir airsim_depth_models -model_file "model=single_view-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -pretrained -backbone mobilenetv2 -gpu_idx $gpu_idx -task depth
 

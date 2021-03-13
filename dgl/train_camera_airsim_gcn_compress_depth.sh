@@ -2,7 +2,7 @@
 # Allows named arguments
 set -k
 gpu_idx=0
-python -u training.py -seed 1 -camera_idx 01234 -dataset airsim-dgl -model_dir airsim_depth_models -model_file "model=multi_view_gcn_c-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -model multi_view_dgl -pretrained -backbone mobilenetv2 -gpu_idx $gpu_idx -compress_gcn
+python -u training.py -seed 1 -camera_idx 01234 -dataset airsim-dgl -model_dir airsim_depth_models -model_file "model=multi_view_gcn_c-bsize=8-lrt=0.005-camera_idx=01234-backbone=mobilenetv2-seed=1-apply_noise_idx=None" -model multi_view_dgl -pretrained -backbone mobilenetv2 -gpu_idx $gpu_idx -compress_gcn -task depth
 for camera_idx in 01234; do
 	for lrt in 0.005; do
 		for batch_size in 8; do
@@ -21,6 +21,7 @@ for camera_idx in 01234; do
 						-pretrained \
 						-apply_noise_idx $apply_noise_idx\
 						-backbone "mobilenetv2" \
+						-task depth \
 						-gpu_idx $gpu_idx \
 						-compress_gcn
 				done
