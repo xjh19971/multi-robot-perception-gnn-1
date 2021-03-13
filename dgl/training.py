@@ -320,9 +320,9 @@ if __name__ == '__main__':
     for epoch in range(opt.epoch):
         t0 = time.time()
         if opt.model == "single_view":
-            train_losses = train(model, trainloader, optimizer, epoch, dataset.stats, lambda_edge=opt.lambda_edge)
+            train_losses = train(model, trainloader, optimizer, epoch, dataset.stats, lambda_edge=opt.lambda_edge, task=opt.task)
         elif opt.model in dgl_models:
-            train_losses = train_dgl(model, trainloader, optimizer, epoch, dataset.stats, opt, lambda_edge=opt.lambda_edge)
+            train_losses = train_dgl(model, trainloader, optimizer, epoch, dataset.stats, opt, lambda_edge=opt.lambda_edge, task=opt.task)
         t1 = time.time()
         print("Time per epoch= %d s" % (t1 - t0))
         if opt.model == "single_view":
