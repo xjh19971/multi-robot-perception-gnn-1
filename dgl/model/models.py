@@ -89,10 +89,9 @@ class single_view_model(nn.Module):
         self.opt = opt
         self.encoder = encoder(self.opt)
         if self.opt.task == 'depthseg':
-            temp_output_dim = self.opt.output_dim
-            self.opt.output_dim = 1
-            self.depth_decoder = decoder(self.opt, opt.feature_dim)
-            self.opt.output_dim = temp_output_dim
+            dec_opt = opt.copy()
+            dec_opt.output_dim = 1
+            self.depth_decoder = decoder(dec_opt, opt.feature_dim)
             self.seg_decoder = decoder(self.opt, opt.feature_dim)
         else:
             self.decoder = decoder(self.opt, opt.feature_dim)
