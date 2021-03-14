@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torchvision import models
-
+import copy
 from .blocks import TransBlock
 
 from dgl.nn.pytorch import GraphConv
@@ -89,7 +89,7 @@ class single_view_model(nn.Module):
         self.opt = opt
         self.encoder = encoder(self.opt)
         if self.opt.task == 'depthseg':
-            dec_opt = opt.copy()
+            dec_opt = copy.copy(self.opt)
             dec_opt.output_dim = 1
             self.depth_decoder = decoder(dec_opt, opt.feature_dim)
             self.seg_decoder = decoder(self.opt, opt.feature_dim)
