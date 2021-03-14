@@ -88,17 +88,35 @@ class single_view_model(nn.Module):
         super(single_view_model, self).__init__()
         self.opt = opt
         self.encoder = encoder(self.opt)
-        self.decoder = decoder(self.opt, opt.feature_dim)
+        if self.opt.task == 'depthseg':
+            temp_output_dim = self.opt.output_dim
+            self.opt.output_dim = 1
+            self.depth_decoder = decoder(self.opt, opt.feature_dim)
+            self.opt.output_dim = temp_output_dim
+            self.seg_decoder = decoder(self.opt, opt.feature_dim)
+        else:
+            self.decoder = decoder(self.opt, opt.feature_dim)
 
     def forward(self, image):
         if self.opt.skip_level:
             h_list = self.encoder(image)
             h = h_list[-1]
-            pred_image = self.decoder(h, h_list)
+            if self.opt.task == 'depthseg':
+                pred_depth = self.depth_decoder(h, h_list)
+                pred_seg = self.seg_decoder(h, h_list)
+                return pred_depth, pred_seg
+            else:
+                pred_image = self.decoder(h, h_list)
+                return pred_image
         else:
             h_list = self.encoder(image)
-            pred_image = self.decoder(h_list[-1])
-        return pred_image
+            if self.opt.task == 'depthseg':
+                pred_depth = self.depth_decoder(h_list[-1])
+                pred_seg = self.seg_decoder(h_list[-1])
+                return pred_depth, pred_seg
+            else:
+                pred_image = self.decoder(h_list[-1])
+                return pred_image
 
 class multi_view_model(nn.Module):
     def __init__(self, opt):
@@ -171,10 +189,21 @@ class multi_view_dgl_model(nn.Module):
                 h = torch.cat((h,g_h),dim=1)
                 h = self.conv2(h)
             if self.opt.skip_level:
-                pred_image = self.decoder(h, h_list)
+                if self.opt.task == 'depthseg':
+                    pred_depth = self.depth_decoder(h, h_list)
+                    pred_seg = self.seg_decoder(h, h_list)
+                    return pred_depth, pred_seg
+                else:
+                    pred_image = self.decoder(h, h_list)
+                    return pred_image
             else:
-                pred_image = self.decoder(h)
-            return pred_image
+                if self.opt.task == 'depthseg':
+                    pred_depth = self.depth_decoder(h)
+                    pred_seg = self.seg_decoder(h)
+                    return pred_depth, pred_seg
+                else:
+                    pred_image = self.decoder(h)
+                    return pred_image
 
 def node_udf(nodes):
     return {'images':nodes.mailbox['m'].mean(1)}

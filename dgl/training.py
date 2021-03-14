@@ -114,6 +114,8 @@ def train(model, dataloader, optimizer, epoch, stats, log_interval=50, lambda_ed
             pred_depth = model(images)
         elif task=='seg':
             pred_seg = model(images)
+        elif task=='depthseg':
+            pred_depth, pred_seg = model(images)
 
         loss = 0
         if pred_depth is not None:
@@ -153,6 +155,8 @@ def test(model, dataloader, stats, lambda_edge=0, task='seg'):
                 pred_depth = model(images)
             elif task == 'seg':
                 pred_seg = model(images)
+            elif task == 'depthseg':
+                pred_depth, pred_seg = model(images)
 
             loss = 0
             if pred_depth is not None:
@@ -188,6 +192,8 @@ def train_dgl(model, dataloader, optimizer, epoch, stats, opt, log_interval=50, 
             pred_depth = model(data)
         elif task == 'seg':
             pred_seg = model(data)
+        elif task=='depthseg':
+            pred_depth, pred_seg = model(data)
 
         loss = 0
         if pred_depth is not None:
@@ -230,6 +236,8 @@ def test_dgl(model, dataloader, stats, opt, lambda_edge=0, task='seg'):
                 pred_depth = model(data)
             elif task == 'seg':
                 pred_seg = model(data)
+            elif task == 'depthseg':
+                pred_depth, pred_seg = model(data)
 
             loss = 0
             if pred_depth is not None:
@@ -272,8 +280,10 @@ if __name__ == '__main__':
     mfile = opt.model_file + '.model'
     if opt.task == 'seg':
         opt.output_dim = int(dataset.stats['num_classes']) + 1
-    else:
+    elif opt.task == 'depth':
         opt.output_dim = 1
+    elif opt.task == 'depthseg':
+        opt.output_dim = int(dataset.stats['num_classes']) + 1
 
     # load previous checkpoint or create new model
     if os.path.isfile(opt.model_dir + '/' + mfile):
