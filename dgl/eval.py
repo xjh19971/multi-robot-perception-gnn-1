@@ -103,7 +103,7 @@ def visualization_seg(images, gts, preds, stats, batch_idx):
 
 def compute_meaniou(pr, gt, eps=1e-7):
     intersection = torch.sum(gt * pr, dim=(2,3))
-    union = torch.sum(gt, dim=(2,3)) + torch.sum(pr, dim=(2,3)) - intersection
+    union = torch.sum(gt, dim=(2,3)) + torch.sum(pr, dim=(2,3)) - intersection + eps
     iou = (intersection + eps) / union
     return torch.mean(iou)
 
