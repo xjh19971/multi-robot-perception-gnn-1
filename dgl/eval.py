@@ -204,7 +204,6 @@ def test_dgl(model, dataloader, stats, opt):
                     visualization_seg(images, segs, pred_seg, stats, batch_idx)
             # test_loss += compute_Depth_SILog(depths, pred_depth, lambdad=1.0, dataset=opt.dataset)
             # test_loss += compute_smooth_L1loss(depths, pred_depth, dataset=opt.dataset)
-            batch_num += 1
             if opt.task == 'depth':
                 abs_rel_single, sq_rel_single, rmse_single, rmse_log_single = compute_depth_metric(depths, pred_depth,
                                                                                          dataset=opt.dataset)
