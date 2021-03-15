@@ -130,7 +130,6 @@ def compute_depth_metric(gt, pred, dataset='airsim-mrmps-data'):
 def compute_seg_metric(gt, pred, output_dim, activation=None):
     gt = one_hot(gt, output_dim).squeeze(2).permute(0,1,4,2,3)
     gt = gt.view(-1, output_dim, opt.image_size, opt.image_size)
-    pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
     if activation == 'softmax':
         pred = torch.nn.Softmax(dim=1)(pred)
     pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
