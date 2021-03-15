@@ -133,6 +133,7 @@ def compute_seg_metric(gt, pred, output_dim, activation=None):
     pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
     if activation == 'softmax':
         pred = torch.nn.Softmax(dim=1)(pred)
+    pred = pred.view(-1, output_dim, opt.image_size, opt.image_size)
     pr = torch.argmax(pred, dim=1).squeeze(2)
     pr = one_hot(pr, output_dim).permute(0,3,1,2)
     meaniou = compute_meaniou(pr, gt)
